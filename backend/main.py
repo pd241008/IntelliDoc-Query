@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.health import router as health_router
-from app.api.upload import router as upload_router
+from backend.app.api.health import router as health_router 
+from backend.app.api.upload import router as upload_router
 
 app = FastAPI(title="IntelliDoc API")
 

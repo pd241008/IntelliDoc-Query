@@ -21,7 +21,7 @@ ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"]
 TEMP_DIR.mkdir(exist_ok=True)
 print(f"--- [DEBUG] Temporary directory created: {TEMP_DIR} ---")
 
-router = APIRouter()
+router = APIRouter(tags=["Upload"])
 
 # --- Helper Function ---
 def run_ocr_on_image(img: Image.Image) -> str:
