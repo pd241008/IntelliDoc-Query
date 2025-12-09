@@ -1,76 +1,129 @@
-from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
+from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException,Query
 import shutil
 import pytesseract
 import os
+import secrets
+from pathlib import Path
+from pdf2image import convert_from_path
+from PIL import Image
+from typing import List
 import asyncio
 
-router = APIRouter()
-# --- 1. Tesseract Configuration (Essential for Windows) ---
-# You MUST replace the path below with the actual location of tesseract.exe 
-# on your system, which is typically C:\Program Files\Tesseract-OCR\tesseract.exe
-try:
-    TESSERACT_PATH = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
-    print(f"--- [DEBUG] Tesseract path set to: {TESSERACT_PATH} ---")
-except Exception as e:
-    # This block usually only catches errors if pytesseract fails to import, 
-    # but the path setting is critical.
-    print(f"--- [ERROR] Failed to set Tesseract path or import pytesseract: {e} ---")
+# --- Tesseract Configuration ---
+# IMPORTANT: SET YOUR PATH HERE!
 
-# --- 2. FastAPI Setup ---
-print("--- [DEBUG] Starting application setup ---")
-router = APIRouter()
-TEMP_FILE_PATH = "temp_uploaded_image.bin" # Using .bin for generic binary storage
+# --- Constants & Setup ---
+TEMP_DIR = Path("temp")
+MAX_FILE_SIZE_MB = 25
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"]
 
-# --- 3. OCR Endpoint ---
+TEMP_DIR.mkdir(exist_ok=True)
+print(f"--- [DEBUG] Temporary directory created: {TEMP_DIR} ---")
+
+router = APIRouter()
+
+# --- Helper Function ---
+def run_ocr_on_image(img: Image.Image) -> str:
+    """Runs OCR on a single PIL Image object."""
+    return pytesseract.image_to_string(img, lang='eng')
+
+# ===============================================
+# 1️⃣ /uploadapi/upload — POST (Updated)
+# ===============================================
+
 @router.post("/upload")
-async def upload_image_for_ocr(image: UploadFile = File(...)):
-    print(f"--- [DEBUG] Request received for /upload. Filename: {image.filename} ---")
+async def upload_file(file: UploadFile = File(...)):
+    # 🎯 STEP 4: Add file-size checks
+    file.file.seek(0, os.SEEK_END)
+    file_size = file.file.tell()
+    await file.seek(0)
+
+    if file_size > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail=f"File size exceeds the {MAX_FILE_SIZE_MB}MB limit.")
+
+    # 1. Validate type and get extension
+    original_filename: str | None = file.filename
     
-    # 1. Save the uploaded file temporarily
+    # --- FIX START: Type Narrowing for Path constructor ---
+    if original_filename is None:
+        raise HTTPException(status_code=400, detail="Filename is missing from the upload request.")
+        
+    # The type checker is now happy because original_filename is guaranteed to be a string (str).
+    file_extension = Path(original_filename).suffix.lower()
+    # --- FIX END ---
+    
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid file type. Only {', '.join(ALLOWED_EXTENSIONS)} allowed.")
+        
+    # 🎯 STEP 3: Rename your temp file correctly
+    file_id = secrets.token_urlsafe(16)
+    unique_filename = file_id + file_extension
+    filepath = TEMP_DIR / unique_filename
+    
+    # 2. Save file
     try:
-        # Read the file content asynchronously
-        file_content = await image.read()
-        print(f"--- [DEBUG] Reading file content. Size: {len(file_content)} bytes ---")
-        
-        # Write the binary content to a temporary file
-        with open(TEMP_FILE_PATH, "wb") as buffer:
-            buffer.write(file_content)
-        print(f"--- [DEBUG] File successfully saved to: {TEMP_FILE_PATH} ---")
+        with open(filepath, "wb") as buffer:
+            # Note: We rely on file.file.seek(0) and shutil.copyfileobj to read the stream content.
+            shutil.copyfileobj(file.file, buffer)
+        print(f"--- [DEBUG] File saved successfully: {filepath} ---")
+    except Exception:
+        if filepath.exists():
+            os.remove(filepath)
+        raise HTTPException(status_code=500, detail="Could not save file.")
 
-        # 2. Perform OCR using pytesseract
-        # We use asyncio.to_thread to run the synchronous pytesseract call 
-        # in a separate thread, preventing the entire FastAPI server from blocking.
-        extracted_text = await asyncio.to_thread(
-            pytesseract.image_to_string, TEMP_FILE_PATH, lang='eng'
-        )
-        
-        print("--- [DEBUG] OCR complete. Extracted text sample: " + extracted_text[:50].replace('\n', ' ') + " ---")
-        
-        # 3. Clean up the temporary file
-        os.remove(TEMP_FILE_PATH)
-        print(f"--- [DEBUG] Temporary file removed: {TEMP_FILE_PATH} ---")
-        
-        # 4. Return the extracted text
-        return {
-            "filename": image.filename, 
-            "extracted_text": extracted_text
-        }
+    # 3. Return { file_id: ... }
+    return {"file_id": file_id, "filename": original_filename, "file_path": str(filepath)}
 
+# ===============================================
+# 2️⃣ /uploadapi/ocr — POST (Unchanged, remains correct)
+# ===============================================
+
+@router.post("/ocr")
+async def extract_text_from_file(file_id: str = Query(...)):
+    print(f"--- [DEBUG] OCR request received for file_id: {file_id} ---")
+    
+    # 1. Load saved file & Detect file type
+    matching_files = list(TEMP_DIR.glob(f"{file_id}.*"))
+    
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="File ID not found. Upload the file first.")
+        
+    filepath = matching_files[0]
+    file_extension = filepath.suffix.lower()
+    extracted_text = ""
+    
+    try:
+        if file_extension == ".pdf":
+            print("--- [DEBUG] Detected PDF. Converting pages to images... ---")
+            
+            # 🎯 STEP 2: Handle PDF correctly (running synchronously in a separate thread)
+            images: List[Image.Image] = await asyncio.to_thread(convert_from_path, filepath, dpi=300)
+            
+            all_page_texts = []
+            for i, img in enumerate(images):
+                page_text = await asyncio.to_thread(run_ocr_on_image, img)
+                all_page_texts.append(page_text)
+                
+            extracted_text = "\n\n--- PAGE BREAK ---\n\n".join(all_page_texts)
+            
+        elif file_extension in [".jpg", ".jpeg", ".png"]:
+            print("--- [DEBUG] Detected Image. Starting OCR... ---")
+            img: Image.Image = await asyncio.to_thread(Image.open, filepath)
+            extracted_text = await asyncio.to_thread(run_ocr_on_image, img)
+            
+        # Clean up the temporary file after processing
+        os.remove(filepath)
+        print(f"--- [DEBUG] Cleaned up temporary file: {filepath} ---")
+            
     except pytesseract.TesseractNotFoundError:
-        # Specific error handling for Tesseract path issues
-        raise HTTPException(
-            status_code=500, 
-            detail="Tesseract is not installed or the path is incorrect. Please check TESSERACT_PATH in the script."
-        )
+        raise HTTPException(status_code=500, detail="Tesseract is not installed or the path is incorrect.")
     except Exception as e:
-        print(f"--- [ERROR] An error occurred during processing: {e} ---")
-        # Ensure cleanup even if an error occurs during processing
-        if os.path.exists(TEMP_FILE_PATH):
-             os.remove(TEMP_FILE_PATH)
-             print(f"--- [DEBUG] Cleaned up temporary file after error: {TEMP_FILE_PATH} ---")
+        print(f"--- [ERROR] Processing failed: {e} ---")
+        if os.path.exists(filepath):
+             os.remove(filepath)
         raise HTTPException(status_code=500, detail=f"File processing failed: {str(e)}")
 
-# --- 4. Main Application Instance ---
+    return {"file_id": file_id, "extracted_text": extracted_text}
 
-print("--- [DEBUG] Router included in FastAPI application. Ready to serve. ---")
+# --- Main Application ---
