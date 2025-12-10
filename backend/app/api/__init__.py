@@ -1,6 +1,7 @@
 # Import the 'router' variable that was exposed in each sub-package's __init__.py
 from .upload import router as upload_router
 from .health import router as health_router
+from .vector import router as processing_router
 
 # You don't need to define an APIRouter here, but you can define a list of all routers
 # that need to be aggregated.

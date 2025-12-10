@@ -76,32 +76,35 @@ async def upload_file(file: UploadFile = File(...)):
     return {"file_id": file_id, "filename": original_filename, "file_path": str(filepath)}
 
 # ===============================================
-# 2️⃣ /uploadapi/ocr — POST (Unchanged, remains correct)
+# 2️⃣ /uploadapi/ocr — POST (Revised)
 # ===============================================
 
 @router.post("/ocr")
 async def extract_text_from_file(file_id: str = Query(...)):
     print(f"--- [DEBUG] OCR request received for file_id: {file_id} ---")
     
-    # 1. Load saved file & Detect file type
+    # 1. Initialization and File Check
     matching_files = list(TEMP_DIR.glob(f"{file_id}.*"))
     
     if not matching_files:
         raise HTTPException(status_code=404, detail="File ID not found. Upload the file first.")
         
-    filepath = matching_files[0]
+    # **SCOPE FIX:** Assigning file path outside the core logic for use in cleanup
+    filepath = matching_files[0] 
     file_extension = filepath.suffix.lower()
+    
+    # **SCOPE FIX:** Initializing extracted_text so it's guaranteed to exist
     extracted_text = ""
+    ocr_text_path = TEMP_DIR / f"{file_id}_ocr.txt"
     
     try:
         if file_extension == ".pdf":
             print("--- [DEBUG] Detected PDF. Converting pages to images... ---")
             
-            # 🎯 STEP 2: Handle PDF correctly (running synchronously in a separate thread)
             images: List[Image.Image] = await asyncio.to_thread(convert_from_path, filepath, dpi=300)
             
             all_page_texts = []
-            for i, img in enumerate(images):
+            for img in images:
                 page_text = await asyncio.to_thread(run_ocr_on_image, img)
                 all_page_texts.append(page_text)
                 
@@ -112,18 +115,38 @@ async def extract_text_from_file(file_id: str = Query(...)):
             img: Image.Image = await asyncio.to_thread(Image.open, filepath)
             extracted_text = await asyncio.to_thread(run_ocr_on_image, img)
             
-        # Clean up the temporary file after processing
-        os.remove(filepath)
-        print(f"--- [DEBUG] Cleaned up temporary file: {filepath} ---")
+        else:
+            # Although the upload endpoint checks this, it's good defensive programming
+            raise HTTPException(status_code=400, detail="File extension was found but not handled in OCR.")
+
+        # --- Persistence Step (New Logic) ---
+        if not extracted_text:
+             raise Exception("OCR failed to produce any text.")
+
+        # Save the OCR text content to a new, persistent file
+        with open(ocr_text_path, "w", encoding="utf-8") as f:
+            f.write(extracted_text)
             
+        print(f"--- [DEBUG] OCR text saved to: {ocr_text_path} ---")
+
+        # Clean up the original document file (PDF/Image) only after successful save
+        os.remove(filepath) 
+        print(f"--- [DEBUG] Cleaned up original file: {filepath} ---")
+            
+        return {"file_id": file_id, "status": "OCR_COMPLETE", "ocr_path": str(ocr_text_path)}
+
     except pytesseract.TesseractNotFoundError:
+        # Re-raise exceptions within the try block
         raise HTTPException(status_code=500, detail="Tesseract is not installed or the path is incorrect.")
+        
     except Exception as e:
         print(f"--- [ERROR] Processing failed: {e} ---")
+        
+        # **SCOPE FIX:** Clean up files if they exist after an error
         if os.path.exists(filepath):
-             os.remove(filepath)
+            os.remove(filepath)
+            
+        if os.path.exists(ocr_text_path):
+             os.remove(ocr_text_path) # Clean up potentially partial OCR file
+
         raise HTTPException(status_code=500, detail=f"File processing failed: {str(e)}")
-
-    return {"file_id": file_id, "extracted_text": extracted_text}
-
-# --- Main Application ---
