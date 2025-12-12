@@ -19,18 +19,25 @@ async def get_redis_client() -> redis.Redis | None:
         if not REDIS_URL:
             print("❌ REDIS_KEY environment variable not set.")
             return None
+
         try:
-            # Use the existing setup for connection and check
-            redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-            pong = await redis_client.ping() # type: ignore
+            # decode_responses=False is required for handling bytes safely
+            redis_client = redis.from_url(
+                REDIS_URL,
+                decode_responses=False
+            )
+
+            pong = await redis_client.ping()  # type: ignore
             if pong:
                 print("✔ Redis connected")
             else:
                 print("❌ Redis ping failed")
                 redis_client = None
+
         except Exception as e:
             print(f"❌ Redis connection error: {e}")
             redis_client = None
+
     return redis_client
 
 
@@ -38,6 +45,7 @@ async def get_redis_client() -> redis.Redis | None:
 async def update_status(file_id: str, step: str, message: str, status: str = "Running"):
     """Updates the processing status for a file in Redis."""
     print(f"[{file_id}] {step} → {message} ({status})")
+
     r = await get_redis_client()
     if r:
         status_key = f"status:{file_id}"
@@ -47,8 +55,9 @@ async def update_status(file_id: str, step: str, message: str, status: str = "Ru
             "message": message,
             "status": status
         })
-        # Status keys expire after 24 hours
-        await r.set(status_key, data, ex=86400)
+
+        # store as bytes so decode later is predictable
+        await r.set(status_key, data.encode("utf-8"), ex=86400)
 
 
 async def get_status_data(file_id: str) -> dict:
@@ -68,17 +77,23 @@ async def get_status_data(file_id: str) -> dict:
         }
 
     try:
-        return json.loads(raw)
+        return json.loads(raw.decode("utf-8"))
     except Exception:
         raise ValueError("Corrupted JSON in Redis.")
+
 
 async def get_raw_ocr_text(file_id: str) -> str | None:
     """Retrieves the raw OCR text from Redis cache."""
     r = await get_redis_client()
     if r:
         text_key = f"data:{file_id}"
-        return await r.get(text_key)
+        raw = await r.get(text_key)
+
+        # decode bytes safely
+        return raw.decode("utf-8") if raw else None
+
     return None
+
 
 async def delete_ocr_cache(file_id: str):
     """Deletes the temporary raw OCR text cache from Redis."""
