@@ -1,46 +1,65 @@
 # app/middleware/celery/tasks.py
 
 from celery import shared_task
-import requests
 import os
 from dotenv import load_dotenv
+
+from sentence_transformers import SentenceTransformer
+from chromadb import CloudClient
 
 from app.data_access.redis_repo_sync import (
     update_status_sync,
     delete_ocr_cache_sync,
 )
 
+# ---------------------------------------------------------
+# LOAD ENV
+# ---------------------------------------------------------
 load_dotenv()
 
-# ---------------------------------------------------------
-# ENV
-# ---------------------------------------------------------
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
-CHROMA_COLLECTION_ID = os.getenv("CHROMA_COLLECTION_ID")
+CHROMA_TENANT = os.getenv("CHROMA_TENANT")
+CHROMA_DATABASE = os.getenv("CHROMA_DATABASE")
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "docsense")
 
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY missing!")
-if not CHROMA_API_KEY:
-    raise ValueError("CHROMA_API_KEY missing!")
-if not CHROMA_COLLECTION_ID:
-    raise ValueError("CHROMA_COLLECTION_ID missing!")
+if not all([CHROMA_API_KEY, CHROMA_TENANT, CHROMA_DATABASE]):
+    raise ValueError("Chroma Cloud env vars missing!")
 
+# ---------------------------------------------------------
+# EMBEDDING MODEL (FREE, LOCAL)
+# ---------------------------------------------------------
+embedding_model = SentenceTransformer(
+    "sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# ---------------------------------------------------------
+# ✅ CHROMA CLOUD CLIENT (ONLY CORRECT WAY)
+# ---------------------------------------------------------
+chroma_client = CloudClient(
+    api_key=CHROMA_API_KEY,
+    tenant=CHROMA_TENANT,
+    database=CHROMA_DATABASE,
+)
+
+collection = chroma_client.get_or_create_collection(
+    name=CHROMA_COLLECTION_NAME,
+    metadata={"project": "DocSense", "space": "cosine"},
+)
 
 # ---------------------------------------------------------
 # 1️⃣ CLEAN TEXT
 # ---------------------------------------------------------
 @shared_task
 def clean_text_task(file_id: str, raw_text: str):
-    cleaned = " ".join(raw_text.split())
+    cleaned_text = " ".join(raw_text.split())
+
     return {
         "file_id": file_id,
-        "cleaned_text": cleaned,
+        "cleaned_text": cleaned_text,
     }
 
-
 # ---------------------------------------------------------
-# 2️⃣ GENERATE EMBEDDINGS (GEMINI)
+# 2️⃣ GENERATE EMBEDDINGS (FREE)
 # ---------------------------------------------------------
 @shared_task(bind=True)
 def generate_embeddings_task(self, payload: dict):
@@ -51,36 +70,19 @@ def generate_embeddings_task(self, payload: dict):
         update_status_sync(
             file_id,
             "Embedding",
-            "Generating Gemini embeddings..."
+            "Generating local embeddings (SentenceTransformers)...",
         )
 
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/"
-            "models/embedding-001:embedContent"
-            f"?key={GEMINI_API_KEY}"
-        )
-
-        data = {
-            "content": {
-                "parts": [
-                    {"text": cleaned_text}
-                ]
-            }
-        }
-
-        response = requests.post(url, json=data, timeout=30)
-        result = response.json()
-
-        if "embedding" not in result:
-            raise Exception(result)
-
-        embedding = result["embedding"]["values"]
+        embedding = embedding_model.encode(
+            cleaned_text,
+            normalize_embeddings=True,
+        ).tolist()
 
         update_status_sync(
             file_id,
             "Embedding",
             "Embedding generated successfully",
-            status="Completed"
+            status="Completed",
         )
 
         return {
@@ -94,10 +96,9 @@ def generate_embeddings_task(self, payload: dict):
             file_id,
             "Embedding",
             f"Failed: {str(e)}",
-            status="Error"
+            status="Error",
         )
         raise
-
 
 # ---------------------------------------------------------
 # 3️⃣ STORE IN CHROMA CLOUD
@@ -112,33 +113,21 @@ def store_in_chroma_task(self, payload: dict):
         update_status_sync(
             file_id,
             "Vector Storage",
-            "Uploading to Chroma Cloud..."
+            "Storing document in Chroma Cloud...",
         )
 
-        url = f"https://api.trychroma.com/v1/collections/{CHROMA_COLLECTION_ID}/upsert"
-
-        headers = {
-            "Authorization": f"Bearer {CHROMA_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        body = {
-            "ids": [file_id],
-            "embeddings": [embedding],
-            "documents": [cleaned_text],
-            "metadatas": [{"file_id": file_id}],
-        }
-
-        resp = requests.post(url, headers=headers, json=body, timeout=30)
-
-        if resp.status_code >= 300:
-            raise Exception(resp.text)
+        collection.add(
+            ids=[file_id],
+            documents=[cleaned_text],
+            embeddings=[embedding],
+            metadatas=[{"file_id": file_id}],
+        )
 
         update_status_sync(
             file_id,
             "Vector Storage",
-            "Stored in Chroma Cloud",
-            status="Completed"
+            "Stored successfully in Chroma Cloud",
+            status="Completed",
         )
 
         return {"file_id": file_id}
@@ -148,10 +137,9 @@ def store_in_chroma_task(self, payload: dict):
             file_id,
             "Vector Storage",
             f"Failed: {str(e)}",
-            status="Error"
+            status="Error",
         )
         raise
-
 
 # ---------------------------------------------------------
 # 4️⃣ CLEAN REDIS CACHE
@@ -165,8 +153,11 @@ def delete_redis_cache_task(payload: dict):
     update_status_sync(
         file_id,
         "Cleanup",
-        "Raw OCR text deleted from Redis cache",
-        status="Completed"
+        "OCR cache removed from Redis",
+        status="Completed",
     )
 
-    return {"file_id": file_id, "status": "Cache Cleared"}
+    return {
+        "file_id": file_id,
+        "status": "Cache Cleared",
+    }
