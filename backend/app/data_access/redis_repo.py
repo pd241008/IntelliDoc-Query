@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REDIS_URL = os.getenv("REDIS_KEY")
+REDIS_URL = os.getenv("REDIS_URL")
 redis_client: redis.Redis | None = None
 
 
@@ -17,7 +17,7 @@ async def get_redis_client() -> redis.Redis | None:
     global redis_client
     if redis_client is None:
         if not REDIS_URL:
-            print("❌ REDIS_KEY environment variable not set.")
+            print("❌ REDIS_URL environment variable not set.")
             return None
 
         try:
