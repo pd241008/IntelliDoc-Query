@@ -1,7 +1,7 @@
 # app/services/processing_service.py
 
 import asyncio
-from app.data_access import redis_repo
+from app.data_access.redis import redis_repo
 from app.utils import ml_utils
 
 # -------------------------------

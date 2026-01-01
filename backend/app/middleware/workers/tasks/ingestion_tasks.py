@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from chromadb import CloudClient
 
-from app.data_access.redis_repo_sync import (
+from app.data_access.redis.redis_repo_sync import (
     update_status_sync,
     delete_ocr_cache_sync,
 )

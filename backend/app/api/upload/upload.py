@@ -5,7 +5,7 @@ import secrets
 from pathlib import Path
 import os
 
-from app.data_access import file_repo
+from app.data_access.redis import file_repo
 from app.services import ocr_service
 
 router = APIRouter(tags=["Upload"])

@@ -1,9 +1,9 @@
 # app/api/v1/processing.py
 
 from fastapi import APIRouter, HTTPException
-from app.data_access import redis_repo
+from app.data_access.redis import redis_repo
 # Import the function directly
-from app.middleware.celery.pipeline import vector_pipeline 
+from app.middleware.workers.ingestion_pipeline.ingestion_pipeline import vector_pipeline 
 
 router = APIRouter(tags=["Process"])
 

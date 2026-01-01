@@ -8,8 +8,8 @@ from pdf2image import convert_from_path
 from PIL import Image
 import pytesseract
 
-from app.data_access import redis_repo
-from app.data_access import file_repo
+from app.data_access.redis import redis_repo
+from app.data_access.redis import file_repo
 
 # --- Helper Function (from original code) ---
 def run_ocr_on_image(img: Image.Image) -> str:

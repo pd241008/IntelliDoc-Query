@@ -6,10 +6,10 @@ from celery.canvas import Signature
 from celery.app.task import Task
 
 # 🌟 IMPORT THE APP INSTANCE: This triggers the config loading
-from app.middleware.celery.celery_app import celery_app
+from app.middleware.workers.ingestion_pipeline.celery_app import celery_app
 
 # Import the decorated functions
-from app.middleware.celery.tasks import ( 
+from app.middleware.workers.tasks.ingestion_tasks import ( 
     clean_text_task as _clean_text_task,
     generate_embeddings_task as _generate_embeddings_task,
     store_in_chroma_task as _store_in_chroma_task,
