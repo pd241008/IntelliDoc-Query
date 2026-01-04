@@ -26,7 +26,7 @@ celery_app.conf.update(
 )
 
 # Auto-discover all tasks inside app/middleware/celery/
-celery_app.autodiscover_tasks(["app.middleware.celery"])
+celery_app.autodiscover_tasks(["app.middleware.workers.instegration_tasks"])
 
 # 🌟 KEY FIX: Set this as the default app for the current process.
 # This tells the @shared_tasks in your FastAPI process to use 
