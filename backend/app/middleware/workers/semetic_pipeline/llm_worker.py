@@ -1,16 +1,35 @@
 from app.middleware.messaging.rabbitmq.consumers import consume
 from app.middleware.messaging.rabbitmq.producers import publish_message
 from app.services.llm_chain import run_llm
+from app.core.config.health import mark_pipeline
 
-def handle(msg):
-    answer = run_llm(msg["query"], msg["docs"])
+
+def handle_llm(message: dict):
+    pipeline_id = message["pipeline_id"]
+    results = message["results"]
+
+    mark_pipeline(pipeline_id, "llm_processing")
+
+    # Extract docs text for LLM
+    docs = [r["text"] for r in results]
+
+    answer = run_llm(
+        query=message.get("query", ""),
+        docs=docs
+    )
 
     publish_message(
-        queue="semantic.store",
+        queue="semantic.llm.completed",
         message={
-            "user_id": msg["user_id"],
-            "answer": answer
+            "pipeline_id": pipeline_id,
+            "answer": answer,
+            "results": results
         }
     )
 
-consume("semantic.llm", handle)
+
+if __name__ == "__main__":
+    consume(
+        queue="semantic.search.completed",
+        handler=handle_llm
+    )
