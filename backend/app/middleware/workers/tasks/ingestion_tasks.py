@@ -7,6 +7,12 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from chromadb import CloudClient
 
+from app.contracts.ingestion_contracts.ingestion import (
+    CleanTextContract,
+    EmbeddingContract,
+    StorageResultContract,
+)
+
 from app.data_access.redis.redis_repo_sync import (
     update_status_sync,
     delete_ocr_cache_sync,
@@ -26,14 +32,14 @@ if not all([CHROMA_API_KEY, CHROMA_TENANT, CHROMA_DATABASE]):
     raise ValueError("Chroma Cloud env vars missing!")
 
 # ---------------------------------------------------------
-# EMBEDDING MODEL (FREE, LOCAL)
+# EMBEDDING MODEL
 # ---------------------------------------------------------
 embedding_model = SentenceTransformer(
     "sentence-transformers/all-MiniLM-L6-v2"
 )
 
 # ---------------------------------------------------------
-# ✅ CHROMA CLOUD CLIENT (ONLY CORRECT WAY)
+# CHROMA CLOUD CLIENT
 # ---------------------------------------------------------
 chroma_client = CloudClient(
     api_key=CHROMA_API_KEY,
@@ -53,93 +59,99 @@ collection = chroma_client.get_or_create_collection(
 def clean_text_task(file_id: str, raw_text: str):
     cleaned_text = " ".join(raw_text.split())
 
-    return {
-        "file_id": file_id,
-        "cleaned_text": cleaned_text,
-    }
+    contract = CleanTextContract(
+        file_id=file_id,
+        cleaned_text=cleaned_text,
+    )
+
+    return contract.model_dump(mode="json")
+
 
 # ---------------------------------------------------------
-# 2️⃣ GENERATE EMBEDDINGS (FREE)
+# 2️⃣ GENERATE EMBEDDINGS
 # ---------------------------------------------------------
 @shared_task(bind=True)
 def generate_embeddings_task(self, payload: dict):
-    file_id = payload["file_id"]
-    cleaned_text = payload["cleaned_text"]
+    contract = CleanTextContract(**payload)
 
     try:
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Embedding",
-            "Generating local embeddings (SentenceTransformers)...",
+            "Generating local embeddings...",
         )
 
         embedding = embedding_model.encode(
-            cleaned_text,
+            contract.cleaned_text,
             normalize_embeddings=True,
         ).tolist()
 
+        result = EmbeddingContract(
+            file_id=contract.file_id,
+            cleaned_text=contract.cleaned_text,
+            embedding=embedding,
+        )
+
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Embedding",
             "Embedding generated successfully",
             status="Completed",
         )
 
-        return {
-            "file_id": file_id,
-            "cleaned_text": cleaned_text,
-            "embedding": embedding,
-        }
+        return result.model_dump(mode="json")
 
     except Exception as e:
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Embedding",
             f"Failed: {str(e)}",
             status="Error",
         )
         raise
+
 
 # ---------------------------------------------------------
 # 3️⃣ STORE IN CHROMA CLOUD
 # ---------------------------------------------------------
 @shared_task(bind=True)
 def store_in_chroma_task(self, payload: dict):
-    file_id = payload["file_id"]
-    cleaned_text = payload["cleaned_text"]
-    embedding = payload["embedding"]
+    contract = EmbeddingContract(**payload)
 
     try:
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Vector Storage",
             "Storing document in Chroma Cloud...",
         )
 
         collection.add(
-            ids=[file_id],
-            documents=[cleaned_text],
-            embeddings=[embedding],
-            metadatas=[{"file_id": file_id}],
+            ids=[contract.file_id],
+            documents=[contract.cleaned_text],
+            embeddings=[contract.embedding],
+            metadatas=[{"file_id": contract.file_id}],
         )
 
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Vector Storage",
-            "Stored successfully in Chroma Cloud",
+            "Stored successfully",
             status="Completed",
         )
 
-        return {"file_id": file_id}
+        return StorageResultContract(
+            file_id=contract.file_id
+        ).model_dump(mode="json")
 
     except Exception as e:
         update_status_sync(
-            file_id,
+            contract.file_id,
             "Vector Storage",
             f"Failed: {str(e)}",
             status="Error",
         )
         raise
+
 
 # ---------------------------------------------------------
 # 4️⃣ CLEAN REDIS CACHE
