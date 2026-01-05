@@ -4,6 +4,8 @@ from typing import cast
 from celery import chain
 from celery.canvas import Signature
 from celery.app.task import Task
+from app.core.config.health import mark_pipeline
+
 
 # 🌟 IMPORT THE APP INSTANCE: This triggers the config loading
 from app.middleware.workers.ingestion_pipeline.celery_app import celery_app
@@ -25,16 +27,28 @@ delete_redis_cache_task = cast(Task, _delete_redis_cache_task)
 def vector_pipeline(file_id: str, raw_ocr_text: str):
     """
     Chains:
-      raw text → clean → embed (Gemini) → store in Chroma Cloud → empty Redis cache
+      raw text → clean → embed → store in Chroma Cloud → empty Redis cache
     """
-    workflow: Signature = chain(
-        clean_text_task.s(file_id, raw_ocr_text),
-        generate_embeddings_task.s(), # Note: payload passes automatically in chain
-        store_in_chroma_task.s(),
-        delete_redis_cache_task.s()
-    )
 
-    # Now this will correctly use the Redis Broker
-    workflow.delay()
+    try:
+        # 🟡 Pipeline started
+        mark_pipeline("ingestion", "running")
 
-    return {"status": "Pipeline started", "file_id": file_id}
+        workflow: Signature = chain(
+            clean_text_task.s(file_id, raw_ocr_text),
+            generate_embeddings_task.s(),
+            store_in_chroma_task.s(),
+            delete_redis_cache_task.s()
+        )
+
+        workflow.delay()
+
+        return {
+            "status": "Pipeline started",
+            "file_id": file_id
+        }
+
+    except Exception as e:
+        # 🔴 Orchestration-level failure
+        mark_pipeline("ingestion", "failed")
+        raise e

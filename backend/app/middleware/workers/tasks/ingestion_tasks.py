@@ -1,5 +1,3 @@
-# app/middleware/celery/tasks.py
-
 from celery import shared_task
 import os
 from dotenv import load_dotenv
@@ -17,6 +15,9 @@ from app.data_access.redis.redis_repo_sync import (
     update_status_sync,
     delete_ocr_cache_sync,
 )
+
+# ✅ PIPELINE HEALTH
+from app.core.config.health import mark_pipeline
 
 # ---------------------------------------------------------
 # LOAD ENV
@@ -75,6 +76,9 @@ def generate_embeddings_task(self, payload: dict):
     contract = CleanTextContract(**payload)
 
     try:
+        # 🟡 PIPELINE RUNNING
+        mark_pipeline("ingestion", "running")
+
         update_status_sync(
             contract.file_id,
             "Embedding",
@@ -108,6 +112,9 @@ def generate_embeddings_task(self, payload: dict):
             f"Failed: {str(e)}",
             status="Error",
         )
+
+        # 🔴 PIPELINE FAILED
+        mark_pipeline("ingestion", "failed")
         raise
 
 
@@ -150,11 +157,14 @@ def store_in_chroma_task(self, payload: dict):
             f"Failed: {str(e)}",
             status="Error",
         )
+
+        # 🔴 PIPELINE FAILED
+        mark_pipeline("ingestion", "failed")
         raise
 
 
 # ---------------------------------------------------------
-# 4️⃣ CLEAN REDIS CACHE
+# 4️⃣ CLEAN REDIS CACHE (FINAL STEP)
 # ---------------------------------------------------------
 @shared_task
 def delete_redis_cache_task(payload: dict):
@@ -168,6 +178,9 @@ def delete_redis_cache_task(payload: dict):
         "OCR cache removed from Redis",
         status="Completed",
     )
+
+    # 🟢 PIPELINE COMPLETED
+    mark_pipeline("ingestion", "completed")
 
     return {
         "file_id": file_id,
