@@ -1,40 +1,46 @@
+from typing import Dict, List
+
+from app.rag.query_embedding import embed_query
+from app.services.search_service import semantic_search
 from app.rag.context_builder import build_context
-from app.rag.llm_stub import SimpleLLM
+from app.rag.llm_stub import generate_answer
 
 
-def run_rag(
+async def run_rag_pipeline(
     query: str,
-    retrieved_documents: list[str],
-) -> dict:
+    top_k: int = 3
+) -> Dict[str, object]:
     """
-    End-to-end RAG execution (no API here).
+    Full RAG pipeline orchestrator.
+
+    Steps:
+    1. Embed user query
+    2. Perform vector similarity search
+    3. Build context from retrieved documents
+    4. Generate LLM answer
     """
 
-    # 1️⃣ Context assembly
-    context = build_context(retrieved_documents)
+     # 1️⃣ Semantic Search (raw query, unchanged internals)
+    results = semantic_search(
+        query=query,
+        limit=top_k
+    )
 
-    # 2️⃣ Prompt construction
-    prompt = f"""
-You are an intelligent document assistant.
+    # 2️⃣ Extract documents (contract-level only)
+    documents: List[str] = [
+        item["document"]
+        for item in results
+        if isinstance(item, dict) and item.get("document")
+    ]
 
-Answer the question using ONLY the context below.
-If the answer is not present, say "I don't know".
+    # 3️⃣ Build context
+    context: str = build_context(documents)
 
-Context:
-{context}
-
-Question:
-{query}
-
-Answer:
-""".strip()
-
-    # 3️⃣ LLM call
-    llm = SimpleLLM()
-    answer = llm.generate(prompt)
+    # 4️⃣ Generate answer
+    answer: str = generate_answer(query, context)
 
     return {
         "query": query,
         "answer": answer,
-        "context_used": context[:500],  # debug-friendly
+        "sources": documents
     }

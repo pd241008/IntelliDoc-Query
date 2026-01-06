@@ -8,7 +8,7 @@ def handle_llm(message: dict):
     pipeline_id = message["pipeline_id"]
     results = message["results"]
 
-    mark_pipeline(pipeline_id, "llm_processing")
+    mark_pipeline(pipeline_id, "running")
 
     # Extract docs text for LLM
     docs = [r["text"] for r in results]

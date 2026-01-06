@@ -8,7 +8,7 @@ def handle_store(message: dict):
     answer = message["answer"]
     results = message["results"]
 
-    mark_pipeline(pipeline_id, "storing")
+    mark_pipeline(pipeline_id, "running")
 
     SearchResultRepository.insert_result(
         pipeline_id=pipeline_id,

@@ -1,41 +1,35 @@
-import os
 from typing import List, Dict, Any
-from chromadb import CloudClient
+
+from app.data_access.chromadb.search_repo import query_documents
 
 
-def _get_collection():
-    client = CloudClient(
-        api_key=os.getenv("CHROMA_API_KEY"),
-        tenant=os.getenv("CHROMA_TENANT"),
-        database=os.getenv("CHROMA_DATABASE"),
+def semantic_search(
+    query: str,
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Semantic Search Pipeline (Service Layer)
+
+    Responsibilities:
+    - Accept raw query text
+    - Delegate search to data access layer
+    - Normalize results for downstream pipelines
+    """
+
+    results = query_documents(
+        query=query,
+        limit=limit
     )
-    return client.get_collection("docsense")
 
-
-def semantic_search(query: str, limit: int = 5) -> List[Dict[str, Any]]:
-    collection = _get_collection()
-
-    result = collection.query(
-        query_texts=[query],
-        n_results=limit,
-    )
-
-    if result is None:
+    if not results:
         return []
 
-    documents = result.get("documents") or [[]]
-    metadatas = result.get("metadatas") or [[]]
-    distances = result.get("distances") or [[]]
-
-    docs = documents[0]
-    metas = metadatas[0]
-    dists = distances[0]
-
+    # Normalize output for RAG / APIs
     return [
         {
-            "text": doc,
-            "metadata": meta,
-            "score": 1 - dist if dist is not None else None,
+            "document": item.get("text"),
+            "metadata": item.get("metadata"),
+            "score": item.get("score"),
         }
-        for doc, meta, dist in zip(docs, metas, dists)
+        for item in results
     ]
