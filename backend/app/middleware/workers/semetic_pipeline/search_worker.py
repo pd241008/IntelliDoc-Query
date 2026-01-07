@@ -8,7 +8,7 @@ def handle_search(message: dict):
     pipeline_id = message["pipeline_id"]
     query = message["query"]
 
-    mark_pipeline(pipeline_id, "searching")
+    mark_pipeline(pipeline_id, "running")
 
     results = query_documents(query)
 
