@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+    container_name: intellidoc-api
+    env_file:
+      - ../.env # root .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  rag:
+    build:
+      context: .
+    container_name: intellidoc-rag
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  worker:
+    build:
+      context: .
+    container_name: intellidoc-worker
+    env_file:
+      - ../.env
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - api
+
+  redis:
+    image: redis:7
+    container_name: intellidoc-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
