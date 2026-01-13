@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useDocuments } from "@/context/DocumentContext";
+import Image from "next/image";
 
 export default function GalleryPage() {
   const { documents } = useDocuments();
@@ -17,9 +18,10 @@ export default function GalleryPage() {
             key={doc.id}
             onClick={() => router.push(`/document/${doc.id}`)}
             className="border-2 border-black rounded-xl p-4 bg-white shadow-[4px_4px_0px_black] cursor-pointer">
-            <img
+            <Image
               src={doc.fileUrl}
               className="mb-3 rounded-md"
+              alt=""
             />
             <button className="btn-secondary">Click Me</button>
           </div>

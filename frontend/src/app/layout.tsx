@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import Header from "@/components/ui/Header";
+import Providers from "../app/provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "IntelliDoc",
-  description: "Smart document management with reminders and insights",
+  description: "Smart document management with reminders",
 };
 
 export default function RootLayout({
@@ -28,18 +29,11 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning>
       <body
-        className={`
-          ${geistSans.variable}
-          ${geistMono.variable}
-          antialiased
-          bg-[#faf9f3]
-          text-black
-        `}>
-        {/* Global Header */}
-        <Header />
-
-        {/* Page Content */}
-        <main className="min-h-[calc(100vh-64px)] px-6 py-4">{children}</main>
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#faf9f3]`}>
+        <Providers>
+          <Header />
+          <main className="min-h-[calc(100vh-64px)] px-6 py-4">{children}</main>
+        </Providers>
       </body>
     </html>
   );

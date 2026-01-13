@@ -5,9 +5,9 @@ export default function Loading() {
         {/* Spinner */}
         <div className="w-14 h-14 border-4 border-black border-t-transparent rounded-full animate-spin" />
 
-        {/* Text */}
         <p className="text-lg font-semibold tracking-wide">
           Loading IntelliDoc…
+          <span className="loading loading-infinity loading-xl"></span>
         </p>
       </div>
     </div>

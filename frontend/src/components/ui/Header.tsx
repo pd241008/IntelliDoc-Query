@@ -17,7 +17,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         {/* Logo */}
         <Link
-          href="/landingpage"
+          href="/"
           className="border-2 border-black px-4 py-1 rounded-md bg-white shadow-[3px_3px_0px_black] font-bold text-lg">
           ✦ IntelliDoc
         </Link>
