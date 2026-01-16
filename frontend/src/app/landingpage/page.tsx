@@ -23,7 +23,7 @@ export default function HomePage() {
       icon: "📅",
       desc: "Track expiry dates and upcoming reminders",
       path: "/profilepage",
-      color: "bg-white",
+      color: "bg-[#cfe9ff]",
     },
     {
       title: "User Dashboard",
