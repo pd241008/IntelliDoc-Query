@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import NavBar from "@/components/ui/NavBar";
 import Providers from "@/app/provider";
+import SystemHealthTooltip from "@/components/ui/SystemHealthTooltip"; // ✅ added
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,9 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+
+          {/* ✅ SYSTEM HEALTH INDICATOR (global, non-intrusive) */}
+          <SystemHealthTooltip />
         </Providers>
       </body>
     </html>

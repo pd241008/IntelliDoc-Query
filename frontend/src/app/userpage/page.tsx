@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const { documents } = useDocuments();
 
   const withExpiry = documents.filter(
-    (d) => d.expiryDate && d.expiryDate !== "AI_EXTRACTED"
+    (d) => d.expiryDate && d.expiryDate !== "AI_EXTRACTED",
   ).length;
 
   const withoutExpiry = documents.length - withExpiry;
@@ -81,7 +81,7 @@ export default function DashboardPage() {
 
       <div className="flex flex-col lg:flex-row gap-12 items-start">
         {/* LEFT: STORAGE ANALYSIS (ChartJS Card) */}
-        <div className="flex-[1.5] w-full bg-[#f3f7cc] border-[4px] border-black rounded-[40px] p-10 shadow-[12px_12px_0px_black] relative overflow-hidden">
+        <div className="flex-[1.5] w-full bg-[#f3f7cc] `border-[4px]` border-black rounded-[40px] p-10 shadow-[12px_12px_0px_black] relative overflow-hidden">
           <div className="flex items-center justify-between mb-10">
             <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
               <LucidePieChart size={24} /> Storage Analysis
@@ -126,7 +126,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT: USER PROFILE */}
-        <div className="flex-1 w-full bg-white border-[4px] border-black rounded-[40px] p-10 shadow-[12px_12px_0px_black]">
+        <div className="flex-1 w-full bg-white `border-[4px]` border-black rounded-[40px] p-10 shadow-[12px_12px_0px_black]">
           <h2 className="text-2xl font-black uppercase tracking-tight mb-8">
             User Profile
           </h2>

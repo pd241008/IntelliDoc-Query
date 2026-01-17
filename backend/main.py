@@ -17,6 +17,6 @@ app.include_router(main_api_router)
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to IntelliDoc API"}
+    return {"message": "Welcome to IntelliDoc API Gateway for OCR and Sementic Search Gateway"}
 
 
