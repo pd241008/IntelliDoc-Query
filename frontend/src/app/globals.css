@@ -1,11 +1,20 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
-/* Custom base styles */
+/* =========================
+   Base Styles
+========================= */
 @layer base {
-  /* ===== WebKit browsers ===== */
+  body {
+    background-color: #faf9f3;
+    color: black;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Universal Ghost Scrollbar ===== */
   ::-webkit-scrollbar {
     width: 12px;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-track {
@@ -13,35 +22,131 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border: none;
-    box-shadow: none;
+    background: transparent;
+    transition: background-color 0.3s ease;
   }
 
-  /* Show scrollbar only when interacting */
-  body:hover ::-webkit-scrollbar-thumb,
-  body:active ::-webkit-scrollbar-thumb {
+  /* Reveal handle only on interaction */
+  html:hover ::-webkit-scrollbar-thumb {
     background-color: white;
     border: 3px solid black;
     box-shadow: 4px 4px 0px black;
   }
 
-  body:hover ::-webkit-scrollbar-track {
-    background: #faf9f3;
+  html:hover ::-webkit-scrollbar-track {
+    background-color: #faf9f3;
     border-left: 2px solid black;
   }
 
+  /* ✔ no !important */
   ::-webkit-scrollbar-thumb:hover {
     background-color: #cfe9ff;
   }
 
-  /* ===== Firefox ===== */
+  /* Firefox */
   * {
     scrollbar-width: none;
   }
 
-  body:hover * {
+  html:hover * {
     scrollbar-width: thin;
     scrollbar-color: black #faf9f3;
+  }
+}
+
+/* =========================
+   Neo-Brutalist Calendar
+========================= */
+@layer components {
+  .neo-calendar {
+    --rdp-cell-size: 50px;
+    margin: 0;
+  }
+
+  /* Base day */
+  .neo-calendar .rdp-day {
+    font-weight: 900;
+    text-transform: uppercase;
+    border-radius: 0.75rem;
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+
+    transition:
+      background-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  /* ---------------------------
+     Hover (non selected only)
+  ---------------------------- */
+  .neo-calendar
+    .rdp-day:not(.rdp-day_selected):not(.rdp-day_today):hover {
+    background-color: #cfe9ff;
+    border: 2px solid black;
+    box-shadow: 3px 3px 0px black;
+  }
+
+  /* ---------------------------
+     TODAY — FIXED (Image 1)
+     ✔ fully filled
+     ✔ no outline look
+  ---------------------------- */
+  .neo-calendar
+    .rdp-day_today:not(.rdp-day_selected) {
+    background-color: #ffde59;
+    color: black;
+    border: 2px solid black;
+    box-shadow: 4px 4px 0px black;
+    outline: none;
+  }
+
+  /* ---------------------------
+     SELECTED DAY
+     ✔ no outline / no ring
+  ---------------------------- */
+  .neo-calendar
+    .rdp-day_selected:not([disabled]) {
+    background-color: #000;
+    color: #fff;
+    border: 2px solid black;
+    box-shadow: 5px 5px 0px black;
+    outline: none;
+  }
+
+  /* Keep selected stable */
+  .neo-calendar
+    .rdp-day_selected:hover {
+    background-color: #000;
+    color: #fff;
+  }
+
+  /* ---------------------------
+     REMOVE browser focus ring
+     (this was the real issue)
+  ---------------------------- */
+  .neo-calendar .rdp-day:focus,
+  .neo-calendar .rdp-day:focus-visible,
+  .neo-calendar .rdp-day[aria-selected="true"] {
+    outline: none;
+    box-shadow: inherit;
+  }
+
+  /* ---------------------------
+     Navigation buttons
+  ---------------------------- */
+  .neo-calendar .rdp-nav_button {
+    background-color: white;
+    border: 2px solid black;
+    border-radius: 0.5rem;
+    box-shadow: 2px 2px 0px black;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .neo-calendar .rdp-nav_button:hover {
+    transform: translate(1px, 1px);
+    box-shadow: none;
   }
 }

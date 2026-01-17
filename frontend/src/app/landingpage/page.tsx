@@ -22,14 +22,14 @@ export default function HomePage() {
       title: "Important Dates",
       icon: "📅",
       desc: "Track expiry dates and upcoming reminders",
-      path: "/profilepage",
+      path: "/document-status",
       color: "bg-[#cfe9ff]",
     },
     {
       title: "User Dashboard",
       icon: "👤",
       desc: "View user info and overall document insights",
-      path: "/dashboard",
+      path: "/userpage",
       color: "bg-white",
     },
   ];
@@ -44,7 +44,7 @@ export default function HomePage() {
         </div>
 
         <h1 className="text-5xl md:text-6xl font-black mb-6 tracking-tighter uppercase italic">
-          Control Center
+          IntelliDoc
         </h1>
 
         <p className="text-black font-bold text-lg opacity-80 leading-relaxed">

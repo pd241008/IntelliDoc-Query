@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { name: "Home", path: "/landingpage" },
   { name: "Gallery", path: "/gallerypage" },
-  { name: "Profile", path: "/profilepage" },
+  { name: "Calender", path: "/document-status" },
 ];
 
 export default function NavBar() {
