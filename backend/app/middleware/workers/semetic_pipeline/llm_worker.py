@@ -1,6 +1,6 @@
 from app.middleware.messaging.rabbitmq.consumers import consume
 from app.middleware.messaging.rabbitmq.producers import publish_message
-from app.services.llm_chain import run_llm
+from app.services.llm_chain_service import run_llm
 from app.core.config.health import mark_pipeline
 
 
