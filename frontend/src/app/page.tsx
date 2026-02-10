@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 
 export default function DefaultLandingPage() {
   const router = useRouter();
-  console.log("BACKEND URL:", process.env.NEXT_PUBLIC_API_BASE_URL);
 
   return (
     <main className="min-h-screen bg-[#faf9f3] relative overflow-hidden font-sans text-black">
