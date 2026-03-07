@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from app.data_access.redis import redis_repo
 # Import the function directly
-from app.middleware.workers.ingestion_pipeline.ingestion_pipeline import vector_pipeline 
+from app.middleware.workers.ingestion_pipeline.ingestion_pipeline import start_ingestion_pipeline
 
 router = APIRouter(tags=["Process"])
 
@@ -38,7 +38,7 @@ async def process_page(file_id: str):
     # 4. Trigger Celery pipeline
     # 🌟 FIX: Call the function directly. Do NOT use .delay() here.
     # The .delay() is already happening inside 'vector_pipeline'.
-    vector_pipeline(file_id, raw_text)
+    start_ingestion_pipeline(file_id, raw_text)
 
     return {
         "file_id": file_id,

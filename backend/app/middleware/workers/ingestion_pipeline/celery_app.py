@@ -1,34 +1,35 @@
-from celery import Celery
+# app/middleware/workers/ingestion_pipeline/celery_app.py
+
 import os
+from celery import Celery
 from dotenv import load_dotenv
 
 load_dotenv()
 
-redis_url = os.getenv("REDIS_URL")
-if not redis_url:
-    raise ValueError("REDIS_URL not set in environment variables.")
+REDIS_URL = os.getenv("REDIS_URL")
 
-# Create Celery app
+# ✅ Explicitly include the exact paths to the files containing your @shared_task definitions
 celery_app = Celery(
-    "middleware",
-    broker=redis_url,
-    backend=redis_url,
+    "docssense",
+    broker=REDIS_URL,
+    backend=REDIS_URL,
+    include=[
+        "app.middleware.workers.ingestion_pipeline.ingestion_pipeline",
+        "app.middleware.workers.ingestion_pipeline.tasks.ingestion_tasks" # Ensure your sub-tasks are loaded too!
+    ]
 )
- 
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    timezone="Asia/Kolkata",
+    timezone="UTC",
     enable_utc=True,
-    # This helps ensure the producer (FastAPI) doesn't hang if Redis is slow
-    broker_connection_retry_on_startup=True 
+
+    task_track_started=True,
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
+
+    task_time_limit=300,
+    task_soft_time_limit=240,
 )
-
-# Auto-discover all tasks inside app/middleware/celery/
-celery_app.autodiscover_tasks(["app.middleware.workers.instegration_tasks"])
-
-# 🌟 KEY FIX: Set this as the default app for the current process.
-# This tells the @shared_tasks in your FastAPI process to use 
-# THIS Redis configuration instead of looking for RabbitMQ on localhost.
-celery_app.set_default()
