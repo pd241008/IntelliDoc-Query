@@ -1,6 +1,6 @@
-"use client";
-
+// app/landingpage/page.tsx
 import Link from "next/link";
+import AuthSync from "@/components/auth/AuthSync"; // 👈 The invisible backend worker
 
 export default function HomePage() {
   const items = [
@@ -35,7 +35,10 @@ export default function HomePage() {
   ];
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center">
+    <main className="min-h-screen flex flex-col items-center justify-center pt-24 pb-12">
+      {/* 👈 The invisible component runs the database sync securely on the server! */}
+      <AuthSync />
+
       {/* Header Section */}
       <div className="text-center mb-16 max-w-2xl relative">
         {/* Decorative Badge */}
@@ -47,7 +50,7 @@ export default function HomePage() {
           IntelliDoc
         </h1>
 
-        <p className="text-black font-bold text-lg opacity-80 leading-relaxed">
+        <p className="text-black font-bold text-lg opacity-80 leading-relaxed px-4">
           Manage documents, track important dates, and stay organized — all from
           one powerful hub.
         </p>
@@ -61,9 +64,9 @@ export default function HomePage() {
             href={item.path}
             className={`
               group relative
-              border-= 4px border-black rounded-32px p-10 ${item.color}
+              border-4 border-black rounded-32px p-10 ${item.color}
               shadow-[10px_10px_0px_black]
-              hover:translate-x-4px hover:translate-y-4px hover:shadow-none
+              hover:translate-x-1 hover:translate-y-1 hover:shadow-none
               transition-all duration-200
             `}>
             <div className="flex items-start gap-6">

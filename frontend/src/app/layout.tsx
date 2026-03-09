@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "@/app/globals.css";
 import NavBar from "@/components/ui/NavBar";
 import Providers from "@/app/provider";
-import SystemHealthTooltip from "@/components/ui/SystemHealthTooltip"; // ✅ added
+import SystemHealthTooltip from "@/components/ui/SystemHealthTooltip";
+import { auth0 } from "@/lib/auth0"; // ⭐ add this
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,11 +21,13 @@ export const metadata: Metadata = {
   description: "Smart document management with reminders",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth0.getSession(); // ⭐ get user session
+
   return (
     <html
       lang="en"
@@ -36,18 +39,16 @@ export default function RootLayout({
           overflow-hidden
         `}>
         <Providers>
-          {/* NAVBAR (fixed, isolated layer) */}
+          {/* NAVBAR */}
           <header className="fixed inset-x-0 top-0 z-50 pointer-events-none">
-            <NavBar />
+            <NavBar user={session?.user} /> {/* ⭐ pass user */}
           </header>
 
-          {/* SCROLL CONTEXT */}
           <div
             className="
               relative h-screen overflow-y-auto overflow-x-hidden
               perspective-1200px
             ">
-            {/* PAGE CANVAS */}
             <main
               className="
                 relative pt-140px
@@ -58,7 +59,6 @@ export default function RootLayout({
             </main>
           </div>
 
-          {/* ✅ SYSTEM HEALTH INDICATOR (global, non-intrusive) */}
           <SystemHealthTooltip />
         </Providers>
       </body>
