@@ -1,8 +1,8 @@
 from celery import chain
 from celery.canvas import Signature
 from celery import shared_task
-from celery.app.task import Task
 from typing import cast
+from celery.app.task import Task
 
 from app.core.config.health import mark_pipeline
 
@@ -14,10 +14,8 @@ from app.middleware.workers.ingestion_pipeline.tasks.ingestion_tasks import (
     delete_redis_cache_task,
 )
 
-
 @shared_task(name="start_ingestion_pipeline")
 def start_ingestion_pipeline(file_id: str, raw_ocr_text: str):
-
     try:
         mark_pipeline("ingestion", "running")
 
@@ -27,6 +25,8 @@ def start_ingestion_pipeline(file_id: str, raw_ocr_text: str):
         store_task: Task = cast(Task, store_in_chroma_task)
         delete_cache_task: Task = cast(Task, delete_redis_cache_task)
 
+        # The returned `file_id` from clean_task is automatically passed 
+        # as the first argument to chunk_task, and so on down the chain.
         workflow: Signature = chain(
             clean_task.s(file_id, raw_ocr_text),
             chunk_task.s(),
@@ -39,7 +39,7 @@ def start_ingestion_pipeline(file_id: str, raw_ocr_text: str):
 
         return {
             "status": "pipeline started",
-            "file_id": file_id,
+            "file_id": file_id
         }
 
     except Exception as e:
