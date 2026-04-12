@@ -2,10 +2,9 @@
 
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
-# ✅ Import your centralized synchronous Redis repository
 from app.data_access.redis import redis_repo_sync
 
 START_TIME = time.time()
@@ -13,7 +12,6 @@ START_TIME = time.time()
 HealthStatus = Literal["connected", "disconnected", "unknown"]
 PipelineStatus = Literal["idle", "running", "failed", "completed", "unknown"]
 
-# Base default structure for when the app first boots up
 DEFAULT_HEALTH = {
     "api": {"status": "up"},
     "broker": {
@@ -38,31 +36,39 @@ DEFAULT_HEALTH = {
     },
 }
 
+
 # ----------------------------
 # Redis Helpers
 # ----------------------------
+
 def _set_status(key: str, data: dict):
-    """Saves status to Redis as a JSON string using the sync repo."""
-    # ✅ Access the 'redis_client' variable directly from your repo
-    client = redis_repo_sync.redis_client 
+    """Save status to Redis."""
+    client = redis_repo_sync.redis_client
     client.set(f"health:{key}", json.dumps(data))
 
+
 def _get_status(key: str, default: dict) -> dict:
-    """Fetches status from Redis, falling back to default if not set."""
-    # ✅ Access the 'redis_client' variable directly from your repo
+    """Fetch status from Redis safely."""
     client = redis_repo_sync.redis_client
     data = client.get(f"health:{key}")
-    
-    # Check for string to satisfy Pylance json.loads type requirements
-    if isinstance(data, str):
-        return json.loads(data)
-        
+
+    if data is None:
+        return default
+
+    # Redis returns bytes
+    if isinstance(data, bytes):
+        try:
+            return json.loads(data.decode())
+        except Exception:
+            return default
+
     return default
 
 
 # ----------------------------
 # MARKERS (called by infra & Celery workers)
 # ----------------------------
+
 def mark_broker(status: HealthStatus):
     _set_status("broker", {
         "provider": "redis",
@@ -70,12 +76,14 @@ def mark_broker(status: HealthStatus):
         "last_checked": datetime.utcnow().isoformat() + "Z"
     })
 
+
 def mark_vector_db(status: HealthStatus):
     _set_status("vector_db", {
         "provider": "chroma-cloud",
         "status": status,
         "last_checked": datetime.utcnow().isoformat() + "Z"
     })
+
 
 def mark_pipeline(name: str, status: PipelineStatus):
     if name not in DEFAULT_HEALTH["pipelines"]:
@@ -88,20 +96,50 @@ def mark_pipeline(name: str, status: PipelineStatus):
 
 
 # ----------------------------
+# Helper: Detect stale pipelines
+# ----------------------------
+
+def _pipeline_stale(data: dict, timeout_minutes: int = 10) -> bool:
+    """Detect if a pipeline has been stuck too long."""
+    last_updated = data.get("last_updated")
+
+    if not last_updated:
+        return False
+
+    try:
+        last = datetime.fromisoformat(last_updated.replace("Z", ""))
+        return datetime.utcnow() - last > timedelta(minutes=timeout_minutes)
+    except Exception:
+        return False
+
+
+# ----------------------------
 # READ MODEL (API-safe)
 # ----------------------------
+
 def get_health():
     uptime = int(time.time() - START_TIME)
 
-    # Fetch live statuses straight from Redis
     broker_data = _get_status("broker", DEFAULT_HEALTH["broker"])
     vector_db_data = _get_status("vector_db", DEFAULT_HEALTH["vector_db"])
-    ingestion_data = _get_status("pipeline:ingestion", DEFAULT_HEALTH["pipelines"]["ingestion"])
-    search_data = _get_status("pipeline:semantic_search", DEFAULT_HEALTH["pipelines"]["semantic_search"])
+    ingestion_data = _get_status(
+        "pipeline:ingestion",
+        DEFAULT_HEALTH["pipelines"]["ingestion"]
+    )
+    search_data = _get_status(
+        "pipeline:semantic_search",
+        DEFAULT_HEALTH["pipelines"]["semantic_search"]
+    )
+
+    # Fix stale pipelines
+    if ingestion_data["status"] == "running" and _pipeline_stale(ingestion_data):
+        ingestion_data["status"] = "idle"
+
+    if search_data["status"] == "running" and _pipeline_stale(search_data):
+        search_data["status"] = "idle"
 
     overall = "ok"
 
-    # Infra health affects overall status
     if broker_data["status"] != "connected":
         overall = "degraded"
 

@@ -1,36 +1,127 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
-// 1. Define the TypeScript Interface
-export interface IDoc extends Document {
+export type DocumentStatus =
+  | "pending"
+  | "uploading"
+  | "processing"
+  | "vectorizing"
+  | "ready"
+  | "error";
+
+export interface IDocument extends Document {
   fileId: string;
   auth0Id: string;
+
   filename: string;
-  status: "pending" | "processing" | "ready" | "error";
-  uploadedAt: Date;
+  fileUrl: string;
+  fileSize?: number;
+  mimeType?: string;
+
+  status: DocumentStatus;
+
+  pageCount?: number;
+
+  vectorIndexed: boolean;
+
+  pipelineStartedAt?: Date;
+  pipelineCompletedAt?: Date;
+
+  errorMessage?: string;
+
+  deletedAt?: Date | null;
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// 2. Define the Mongoose Schema
-const DocumentSchema: Schema = new Schema({
-  fileId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true,
-  },
-  auth0Id: {
-    type: String,
-    required: true,
-    index: true,
-  },
-  filename: { type: String, required: true },
-  status: {
-    type: String,
-    enum: ["pending", "processing", "ready", "error"],
-    default: "pending",
-  },
-  uploadedAt: { type: Date, default: Date.now },
-});
+const DocumentSchema = new Schema<IDocument>(
+  {
+    fileId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
 
-// 3. Export the model safely
-export default mongoose.models.Document ||
-  mongoose.model<IDoc>("Document", DocumentSchema);
+    auth0Id: {
+      type: String,
+      required: true,
+      index: true,
+    },
+
+    filename: {
+      type: String,
+      required: true,
+    },
+
+    fileUrl: {
+      type: String,
+      required: true,
+    },
+
+    fileSize: {
+      type: Number,
+    },
+
+    mimeType: {
+      type: String,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "uploading",
+        "processing",
+        "vectorizing",
+        "ready",
+        "error",
+      ],
+      default: "pending",
+      index: true,
+    },
+
+    pageCount: {
+      type: Number,
+    },
+
+    vectorIndexed: {
+      type: Boolean,
+      default: false,
+    },
+
+    pipelineStartedAt: {
+      type: Date,
+    },
+
+    pipelineCompletedAt: {
+      type: Date,
+    },
+
+    errorMessage: {
+      type: String,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+  },
+);
+
+/**
+ * 🔥 PERFORMANCE INDEX
+ * Optimizes queries like:
+ * find({ auth0Id }).sort({ createdAt: -1 })
+ */
+DocumentSchema.index({ auth0Id: 1, createdAt: -1 });
+
+const DocumentModel: Model<IDocument> =
+  mongoose.models.Document ||
+  mongoose.model<IDocument>("Document", DocumentSchema);
+
+export default DocumentModel;
