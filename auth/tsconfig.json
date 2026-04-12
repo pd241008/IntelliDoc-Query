@@ -5,10 +5,12 @@
     "rootDir": ".",
     "outDir": "dist",
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "types": ["node", "jest"]
   },
   "include": [
     "src/**/*",
-    ".expresskit/**/*"
+    ".expresskit/**/*",
+    "tests/**/*"
   ]
 }

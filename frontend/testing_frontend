@@ -1,0 +1,217 @@
+# IntelliDoc Frontend — Test Suite Implementation Plan
+
+## Workspace Analysis
+
+### Tech Stack Profile
+- **Framework**: Next.js 16.1.1 (App Router) with React 19.2.3
+- **Language**: TypeScript 5, Tailwind CSS v4 + daisyUI
+- **Auth**: `@auth0/nextjs-auth0` (server-side sessions)
+- **Charts**: `chart.js` + `react-chartjs-2` (Doughnut)
+- **Icons**: `lucide-react`
+- **State**: React Context (`DocumentContext`) with `sampleDocuments` seed
+
+### Route Map
+
+| Route | File | Type | Purpose |
+|---|---|---|---|
+| `/` | [page.tsx](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/page.tsx) | Client | Hero page — "AI POWERED MANAGEMENT" badge, "GET STARTED" CTA |
+| `/landingpage` | [page.tsx](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/landingpage/page.tsx) | Server | Navigation grid — 4 cards (Upload, Gallery, Dates, User) + `<AuthSync>` |
+| `/uploadpage` | [page.tsx](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/uploadpage/page.tsx) | Client | Document upload — name input + file picker + `POST /api/upload` |
+| `/gallerypage` | [page.tsx](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/gallerypage/page.tsx) | Client | Document vault — 4 hardcoded DocCards in 2-col grid |
+| `/userpage` | [page.tsx](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/userpage/page.tsx) | Client | Dashboard — Doughnut chart (Storage Analysis) + User Profile |
+| `/document-status` | dir exists | Client | Calendar/dates view |
+
+### Component Map
+
+| Component | File | Key Props / Behavior |
+|---|---|---|
+| [SystemHealthTooltip](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/components/ui/SystemHealthTooltip.tsx) | `ui/` | Fetches `/api/health`, shows "UP" / "LOADING" / "DEGRADED" / "DOWN", color-coded badge + hover tooltip with per-service status rows |
+| [NavBar](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/components/ui/NavBar.tsx) | `ui/` | 3 nav links (Home, Gallery, Calendar), auth section (Login / user avatar + Logout), neo-brutalist shadow classes |
+| [DocCard](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/components/ui/DocCard.tsx) | `ui/` | Props: `{title, imageUrl, date, onClick}` — card with image, title, date badge, brutalist shadow |
+| [DocInteractionHub](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/components/ui/DocInteractionHub.tsx) | `ui/` | Modal overlay — document preview + AI chat panel |
+| [AuthSync](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/components/auth/AuthSync.tsx) | `auth/` | Server component — syncs Auth0 session to backend MongoDB |
+
+### API Route Handlers (Next.js BFF)
+
+| Endpoint | File | External Call |
+|---|---|---|
+| `GET /api/health` | [route.ts](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/api/health/route.ts) | Proxies to `backend:8000/health` → returns merged health JSON |
+| `POST /api/upload` | [route.ts](file:///e:/03-Code/Projects/Legacy/DocsSense/frontend/src/app/api/upload/route.ts) | Auth-gated → proxies FormData to `backend/upload` |
+
+### Key Rendering Details for Tests
+
+**SystemHealthTooltip** (most critical):
+- Status badge text: `status === "healthy" ? "UP" : status` (L157)
+- Color classes: `bg-gray-200` (loading), `bg-[#cfe9ff]` (healthy/up), `bg-[#ffde59]` (degraded), `bg-red-300` (down)
+- Config labels: "Checking systems", "All systems operational", "Partial outage", "System down"
+- Service rows: green `text-green-600` for `"up"`, amber `text-amber-500` for everything else (L110)
+
+**NavBar**:
+- Active link: `bg-[#ffde59] shadow-[4px_4px_0px_black]`
+- Inactive link: `bg-white hover:bg-[#cfe9ff] hover:shadow-[4px_4px_0px_black]`
+- Brutalist container: `border-[3px] border-black ... shadow-[8px_8px_0px_black]`
+
+**DocCard**:
+- Container: `border-[3px] border-black ... shadow-[8px_8px_0px_black]`
+- Hover: `hover:translate-x-2px hover:translate-y-2px hover:shadow-none`
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Next.js Server Components**: `layout.tsx` and `AuthSync.tsx` are server components that call `auth0.getSession()`. For Vitest component tests, we cannot render these directly. Tests will target client components only, wrapping them in the necessary providers (`DocumentProvider`). The root layout is tested indirectly via Playwright E2E.
+
+> [!WARNING]
+> **Chart.js Canvas**: The `Doughnut` chart from `react-chartjs-2` renders to `<canvas>`, which isn't accessible via DOM queries. The User Dashboard test will assert the percentage text overlay (`{percent}%`) and document count text, NOT the canvas internals.
+
+> [!NOTE]
+> **`next/navigation` mocking**: Client components use `useRouter()` and `usePathname()` from `next/navigation`. Vitest tests will mock these via `vi.mock("next/navigation")`. Similarly, `next/image` will be mocked to render plain `<img>` tags.
+
+---
+
+## Proposed Changes
+
+### Testing Infrastructure
+
+#### [NEW] `frontend/vitest.config.ts`
+- Test environment: `jsdom`
+- Path alias: `@/*` → `./src/*`
+- Setup file: `tests/setup.ts`
+- Include: `tests/unit/**/*.test.{ts,tsx}`
+
+#### [NEW] `frontend/tests/setup.ts`
+- Import `@testing-library/jest-dom/vitest` for DOM matchers
+- Global mock for `next/navigation` (`useRouter`, `usePathname`, `useSearchParams`)
+- Global mock for `next/image` (renders `<img>`)
+- Global mock for `next/link` (renders `<a>`)
+- MSW `server.listen()` / `server.close()` lifecycle
+
+#### [NEW] `frontend/playwright.config.ts`
+- `baseURL`: `http://localhost:3000`
+- `webServer`: `npm run dev` with auto-startup
+- Browser: Chromium only (headless)
+- `testDir`: `tests/e2e`
+
+---
+
+### MSW Handlers
+
+#### [NEW] `frontend/tests/mocks/handlers.ts`
+MSW request handlers for all API routes:
+- `GET /api/health` — configurable: healthy / degraded / down responses
+- `POST /api/upload` — returns mock `{id, fileUrl, expiryDate}` with 200
+- `GET /api/documents/list` — returns mock document array
+
+#### [NEW] `frontend/tests/mocks/server.ts`
+MSW `setupServer()` for Vitest (Node.js environment)
+
+#### [NEW] `frontend/tests/mocks/browser.ts`
+MSW `setupWorker()` for Playwright (browser environment) — may not be needed since Playwright tests hit the Next.js dev server directly
+
+---
+
+### Component Unit Tests (Vitest + RTL)
+
+#### [NEW] `frontend/tests/unit/components/SystemHealthTooltip.test.tsx`
+**The CRITICAL test file** — 12+ test cases:
+- **Loading state**: renders "LOADING" text, `bg-gray-200` class, spinning icon (`animate-spin`)
+- **Healthy state**: fetch returns `{ok:true, status:"up", services:{api:{status:"up"}}}` → renders "UP", `bg-[#cfe9ff]`
+- **Degraded state**: fetch returns `{status:"degraded", services:{broker:{status:"unknown"}}}` → renders "DEGRADED", `bg-[#ffde59]`, config label "Partial outage"
+- **Down state**: fetch throws/500 → renders "DOWN", `bg-red-300`, label "System down"
+- **Service rows**: renders per-service status text with correct colors (`text-green-600` for "up", `text-amber-500` for others)
+- **Nested services**: renders pipeline sub-group headers
+- **Uptime display**: renders uptime string from health data
+- **Tooltip visibility**: tooltip div has initial `opacity-0` class
+
+#### [NEW] `frontend/tests/unit/components/NavBar.test.tsx`
+- Renders logo link to `/`
+- Renders 3 navigation items: Home, Gallery, Calendar
+- Active item gets `bg-[#ffde59]` class
+- Logged-in user shows avatar + name + "Log Out" link
+- Logged-out user shows "Log In" link
+- Brutalist styling: container has `border-[3px]`, `border-black`, `shadow-[8px_8px_0px_black]`
+
+#### [NEW] `frontend/tests/unit/components/DocCard.test.tsx`
+- Renders title, date, and image
+- Calls `onClick` when clicked
+- Has neo-brutalist classes: `border-[3px]`, `border-black`, `shadow-[8px_8px_0px_black]`
+- Hover removes shadow: `hover:shadow-none` class present
+
+#### [NEW] `frontend/tests/unit/components/UserDashboard.test.tsx`
+- Renders "User Dashboard" heading
+- Renders percentage text based on document data
+- Renders user profile fields (Full Name, Email)
+- Logout button renders with brutalist styling (`border-[3px]`, `border-black`, `shadow-[6px_6px_0px_black]`)
+- Document count text renders correctly
+
+#### [NEW] `frontend/tests/unit/components/UploadPage.test.tsx`
+- Renders "Upload Your File Here" heading
+- Document name input is functional
+- Upload button triggers file picker
+- "Doc Gallery" button navigates to `/gallerypage`
+- During upload, heading changes to "Processing..." and buttons show "WORKING..."
+- Brutalist styling on buttons: `border-[3px]`, `border-black`, `shadow-[6px_6px_0px_black]`
+
+---
+
+### E2E Tests (Playwright)
+
+#### [NEW] `frontend/tests/e2e/navigation-journey.spec.ts`
+- Start at `/` — verify "AI Powered Management" badge renders
+- Verify "IntelliDoc" heading renders
+- Click "GET STARTED" → navigates to `/landingpage`
+- On landing page: verify all 4 grid cards render (Upload Documents, Document Gallery, Important Dates, User Dashboard)
+- Click each grid card → verify navigation to correct route
+
+#### [NEW] `frontend/tests/e2e/upload-journey.spec.ts`
+- Navigate to `/uploadpage`
+- Verify "Upload Your File Here" heading
+- Type document name in input
+- Verify upload button is present
+- Verify "Doc Gallery" button navigates to `/gallerypage`
+
+---
+
+## Files Summary
+
+| # | Action | Path | Purpose |
+|---|---|---|---|
+| 1 | NEW | `frontend/vitest.config.ts` | Vitest configuration |
+| 2 | NEW | `frontend/playwright.config.ts` | Playwright E2E config |
+| 3 | NEW | `frontend/tests/setup.ts` | Vitest global setup (MSW + mocks) |
+| 4 | NEW | `frontend/tests/mocks/handlers.ts` | MSW request handlers |
+| 5 | NEW | `frontend/tests/mocks/server.ts` | MSW node server |
+| 6 | NEW | `frontend/tests/unit/components/SystemHealthTooltip.test.tsx` | Health widget tests |
+| 7 | NEW | `frontend/tests/unit/components/NavBar.test.tsx` | NavBar tests |
+| 8 | NEW | `frontend/tests/unit/components/DocCard.test.tsx` | DocCard tests |
+| 9 | NEW | `frontend/tests/unit/components/UserDashboard.test.tsx` | Dashboard tests |
+| 10 | NEW | `frontend/tests/unit/components/UploadPage.test.tsx` | Upload page tests |
+| 11 | NEW | `frontend/tests/e2e/navigation-journey.spec.ts` | Navigation E2E |
+| 12 | NEW | `frontend/tests/e2e/upload-journey.spec.ts` | Upload E2E |
+| 13 | MODIFY | `frontend/package.json` | Add test deps + scripts |
+
+**Total: 12 new files, 1 modified file**
+
+---
+
+## Verification Plan
+
+### Component Tests (Vitest)
+```bash
+cd frontend
+npx vitest run --reporter=verbose
+```
+All tests must pass with zero network calls (MSW intercepts everything).
+
+### E2E Tests (Playwright)
+```bash
+cd frontend
+npx playwright test --reporter=list
+```
+Requires `npm run dev` (auto-started via Playwright config).
+
+### Self-Correction Checks
+- Verify `next/navigation` mocking doesn't leak between tests
+- Verify Chart.js canvas doesn't crash jsdom (mock `HTMLCanvasElement.getContext`)
+- Verify MSW handlers return correct shapes matching `HealthResponse` interface
