@@ -1,0 +1,234 @@
+# IntelliDoc Backend — Python Test Suite Implementation Plan
+
+## Workspace Analysis Findings
+
+The backend is a **Python 3.11+ / FastAPI** application with a complex multi-pipeline architecture:
+
+### FastAPI Routers (`app/api/`)
+
+| Router | Endpoint | Method | Purpose |
+|---|---|---|---|
+| [health.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/api/health/health.py) | `GET /health` | Sync | System health dashboard (reads from Redis) |
+| [upload.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/api/upload/upload.py) | `POST /upload` | Async | File upload → saves to disk → triggers OCR pipeline |
+| [processing.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/api/vector/processing.py) | `POST /process` | Async | Triggers Celery ingestion from cached OCR text |
+| [processing.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/api/vector/processing.py) | `GET /status/{file_id}` | Async | Retrieves processing status from Redis |
+| [query.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/api/query/query.py) | `POST /query/` | Async | RAG pipeline — embed → search → context → LLM answer |
+
+### Celery Pipeline — Ingestion (`app/middleware/workers/ingestion_pipeline/`)
+
+| Task | Function | Purpose |
+|---|---|---|
+| [celery_app.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/middleware/workers/ingestion_pipeline/celery_app.py) | `celery_app` | Celery app instance (broker=Redis) |
+| [ingestion_pipeline.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/middleware/workers/ingestion_pipeline/ingestion_pipeline.py) | `start_ingestion_pipeline` | `@shared_task` — orchestrates chain of 5 sub-tasks |
+| [ingestion_tasks.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/middleware/workers/ingestion_pipeline/tasks/ingestion_tasks.py) | `clean_text_task` | Whitespace normalization, stores in Redis hash |
+| | `chunk_document_task` | Splits text into 500-char chunks with 100-char overlap |
+| | `generate_embeddings_task` | SentenceTransformer encoding → stores in Redis hash |
+| | `store_in_chroma_task` | Writes chunks + embeddings to ChromaDB |
+| | `delete_redis_cache_task` | Cleans up pipeline and OCR cache keys |
+
+### RAG Pipeline (`app/rag/` + `app/services/`)
+
+| Module | Function | Purpose |
+|---|---|---|
+| [query_embedding.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/rag/query_embedding.py) | `embed_query` | SentenceTransformer → query vector |
+| [search_repo.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/data_access/chromadb/search_repo.py) | `query_documents` | ChromaDB CloudClient → similarity search |
+| [search_service.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/services/search_service.py) | `semantic_search` | Service layer → normalizes search results |
+| [context_builder.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/rag/context_builder.py) | `build_context` | Assembles size-limited context from doc chunks |
+| [llm_stub.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/rag/llm_stub.py) | `generate_answer` | Deterministic answer generator (LLM placeholder) |
+| [rag_service.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/services/rag_service.py) | `run_rag_pipeline` | Full orchestrator: search → context → answer |
+
+### Data Access Layers
+
+| Module | Purpose | External Dependency |
+|---|---|---|
+| [redis_repo.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/data_access/redis/redis_repo.py) | Async Redis client (status, OCR cache, pipeline activity) | `redis.asyncio` |
+| [redis_repo_sync.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/data_access/redis/redis_repo_sync.py) | Sync Redis client (health system) | `redis` |
+| [file_repo.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/data_access/redis/file_repo.py) | Local temp file storage | Filesystem |
+| [chromaconnection.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/database/chromadb/chromaconnection.py) | ChromaDB Cloud write/read | `chromadb.CloudClient` |
+| [search_repo.py](file:///e:/03-Code/Projects/Legacy/DocsSense/backend/app/data_access/chromadb/search_repo.py) | ChromaDB Cloud read (search) | `chromadb.CloudClient` |
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Import-time side effects**: Multiple modules execute heavy operations at import time:
+> - `ingestion_tasks.py` L25-28: creates a live `redis.from_url()` client and loads `SentenceTransformer` model
+> - `redis_repo_sync.py` L10-19: creates a live Redis client at module scope (raises `ValueError` if `REDIS_URL` unset)
+> - `retriever.py` L12-20: creates a `ChromaDB CloudClient` at module scope
+> - `query_embedding.py` L4-6: loads `SentenceTransformer` at module scope
+>
+> The test suite will use `unittest.mock.patch` and environment variable stubs to prevent these from executing during tests. Modules with unavoidable import-time side effects will be patched **before** the importing module is loaded.
+
+> [!WARNING]
+> **Celery ALWAYS_EAGER**: The ingestion pipeline uses `workflow.apply_async()` with a Celery `chain()`. In `ALWAYS_EAGER` mode, this runs synchronously but still requires a Redis-backed broker to be configured. The test conftest will configure the Celery app with `task_always_eager=True` and set `broker_url` / `result_backend` to `"memory://"` to avoid needing a real Redis instance.
+
+> [!NOTE]
+> **The `redis_repo_sync.py` module** raises `ValueError` at import time if `REDIS_URL` is not set. The health endpoint imports this. Tests will set `REDIS_URL` as an env var in conftest and provide a `fakeredis` instance via monkeypatching.
+
+---
+
+## Proposed Changes
+
+### Configuration
+
+#### [NEW] `backend/pytest.ini`
+- `testpaths = tests`
+- `asyncio_mode = auto`
+- `filterwarnings` to suppress known Celery/Pydantic deprecation warnings
+
+#### [NEW] `backend/requirements.test.txt`
+- `pytest`, `pytest-mock`, `pytest-asyncio`, `httpx`, `fakeredis`, `mongomock`
+
+---
+
+### Global Fixtures (`tests/conftest.py`)
+
+#### [NEW] `backend/tests/conftest.py`
+**Critical setup order** (must happen before any application module is imported):
+1. Set environment variables (`REDIS_URL`, `CHROMA_API_KEY`, etc.)
+2. Patch `redis.from_url` and `redis.Redis.from_url` → return `fakeredis` instances
+3. Patch `chromadb.CloudClient` → return mock collection
+4. Patch `SentenceTransformer` → return mock model
+5. Configure Celery: `task_always_eager=True`, `broker_url="memory://"`
+6. Provide FastAPI `TestClient` fixture via `httpx.AsyncClient`
+
+---
+
+### Mock Stubs (`tests/mocks/`)
+
+#### [NEW] `tests/mocks/__init__.py`
+
+#### [NEW] `tests/mocks/mock_storage.py`
+- Fake file storage using `tempfile.mkdtemp()`
+- `save_uploaded_file()` → writes to temp dir, returns `Path`
+- `find_file_path()` → finds in temp dir
+- `cleanup_local_file()` → removes from temp dir
+
+#### [NEW] `tests/mocks/mock_embeddings.py`
+- `FakeEmbeddingModel` class with `.encode()` that returns deterministic 384-dim vectors
+- Each call returns `[[0.01, 0.02, ..., 0.384]]` — same dimensionality as `all-MiniLM-L6-v2`
+
+#### [NEW] `tests/mocks/mock_vector_db.py`
+- In-memory ChromaDB collection stub
+- `add()` → stores documents/embeddings/metadatas
+- `query()` → returns hardcoded relevant chunks with realistic distances
+- `get_or_create_collection()` → returns the stub collection
+
+#### [NEW] `tests/mocks/mock_llm.py`
+- `mock_generate_answer(query, context)` → returns `"This is a mocked LLM response based on the provided context."`
+
+#### [NEW] `tests/mocks/mock_redis.py`
+- `FakeAsyncRedis` class implementing `get`, `set`, `delete`, `exists`, `hset`, `hget`, `ping`
+- Backed by Python `dict` — no network calls
+- `FakeSyncRedis` for the health module's synchronous Redis
+
+---
+
+### Unit Tests (`tests/unit/`)
+
+#### [NEW] `tests/unit/__init__.py`
+#### [NEW] `tests/unit/test_chunking.py`
+Tests for `chunk_text()` from `ingestion_tasks.py` and `ml_utils.py`:
+- Verifies output respects chunk_size=500, overlap=100
+- Short text (< chunk_size) → returns single chunk
+- Exact chunk_size text → correct boundary handling
+- Overlap correctness: each chunk[i+1] starts at `chunk_size - overlap` from chunk[i]
+- Empty text → returns empty list or single empty chunk
+
+#### [NEW] `tests/unit/test_context_builder.py`
+Tests for `build_context()`:
+- Empty document list → returns "No relevant documents found."
+- Single document → wrapped in `[Document 1]`
+- Multiple documents → sequentially numbered
+- Respects `max_chars` limit — truncates at boundary
+- Skips empty/whitespace-only documents
+
+#### [NEW] `tests/unit/test_llm_stub.py`
+Tests for `generate_answer()`:
+- With valid context → includes query and context in output
+- With empty context → returns "could not find" message
+- With "No relevant documents found." context → same fallback
+
+#### [NEW] `tests/unit/test_text_cleaning.py`
+Tests for `clean_text_utility()` from `ml_utils.py`:
+- Strips leading/trailing whitespace
+- Lowercases text
+- Preserves internal spacing (single-line result)
+
+---
+
+### Integration Tests (`tests/integration/`)
+
+#### [NEW] `tests/integration/__init__.py`
+
+#### [NEW] `tests/integration/test_health_endpoint.py`
+- `GET /health` → 200 with health structure containing `status`, `service`, `services`
+
+#### [NEW] `tests/integration/test_rag_pipeline.py`
+Full RAG query lifecycle via `POST /query/`:
+- Mocks `query_documents` in search_repo → returns deterministic results
+- Sends `{"query": "What is IntelliDoc?", "top_k": 3}`
+- Asserts 200 with `query`, `answer`, and `sources` keys
+- Verifies the answer contains content from the mocked documents
+- Verifies `sources` list matches mocked document text
+
+#### [NEW] `tests/integration/test_upload_endpoint.py`
+File upload lifecycle via `POST /upload`:
+- Uploads a minimal valid PDF/TXT file
+- Asserts 200 with `file_id`, `filename`, `status: "UPLOADED"`
+- Tests validation: oversized file → 413, invalid extension → 400, missing filename → 400
+- OCR pipeline trigger is mocked to avoid Tesseract dependency
+
+---
+
+## Files Summary
+
+| Action | Path | Purpose |
+|---|---|---|
+| NEW | `backend/pytest.ini` | Pytest configuration |
+| NEW | `backend/requirements.test.txt` | Test dependencies |
+| NEW | `backend/tests/__init__.py` | Package marker |
+| NEW | `backend/tests/conftest.py` | Global fixtures (Celery eager, patched imports, TestClient) |
+| NEW | `backend/tests/mocks/__init__.py` | Package marker |
+| NEW | `backend/tests/mocks/mock_storage.py` | Fake file storage |
+| NEW | `backend/tests/mocks/mock_embeddings.py` | Deterministic embedding model |
+| NEW | `backend/tests/mocks/mock_vector_db.py` | In-memory ChromaDB stub |
+| NEW | `backend/tests/mocks/mock_llm.py` | Static LLM response |
+| NEW | `backend/tests/mocks/mock_redis.py` | Fake Redis (async + sync) |
+| NEW | `backend/tests/unit/__init__.py` | Package marker |
+| NEW | `backend/tests/unit/test_chunking.py` | Text chunking unit tests |
+| NEW | `backend/tests/unit/test_context_builder.py` | Context builder unit tests |
+| NEW | `backend/tests/unit/test_llm_stub.py` | LLM stub unit tests |
+| NEW | `backend/tests/unit/test_text_cleaning.py` | Text cleaning unit tests |
+| NEW | `backend/tests/integration/__init__.py` | Package marker |
+| NEW | `backend/tests/integration/test_health_endpoint.py` | Health endpoint integration test |
+| NEW | `backend/tests/integration/test_rag_pipeline.py` | RAG query pipeline integration test |
+| NEW | `backend/tests/integration/test_upload_endpoint.py` | Upload endpoint integration test |
+
+**Total: 19 new files**
+
+---
+
+## Verification Plan
+
+### Automated Tests
+```bash
+cd backend
+pip install -r requirements.test.txt
+python -m pytest -v --tb=short
+```
+
+All tests must:
+- Pass with exit code 0
+- Use **zero network calls** (no Redis, ChromaDB, OpenAI, HuggingFace)
+- Not load `SentenceTransformer` models (mocked)
+- Not require Tesseract OCR installed
+- Not require a running Celery worker or Redis broker
+- Complete within 30 seconds total
+
+### Self-Correction Checks
+- Verify `mock_vector_db` `query()` returns data that flows through `semantic_search()` → `build_context()` → `generate_answer()`
+- Verify `mock_embeddings` `.encode()` returns correctly-shaped arrays
+- Verify `mock_redis` handles both async and sync patterns
+- Verify no `ImportError` from module-level side effects
