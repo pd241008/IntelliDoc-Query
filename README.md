@@ -36,6 +36,7 @@ Most AI projects stop at:
 - ✅ Secure authentication (Auth0 / JWT)
 - ✅ Multi-cloud deployment strategy
 - ✅ Analytics & monitoring baked in
+- ✅ 100% Mocked Offline Testing Architecture (228+ Tests)
 
 ---
 
@@ -63,36 +64,25 @@ The frontend is built using **Next.js** and serves as the primary user interface
 
 ## 🏗️ Full System Architecture
 
-Browser (Next.js on Vercel)
-|
-v
-API Gateway (FastAPI)
-|
-┌───────────────┬──────────────────┬──────────────────┐
-| | | |
-Auth Service Upload Service Query Service Admin Service
-(Auth0/JWT) | |
-v v
-Object Storage MongoDB
-(S3 / GCS) (Users, Docs, Metadata)
-|
-v
-Async Processing Pipeline
-(Celery Workers)
-|
-v
-Embeddings + Chunking
-|
-v
-Vector Database
-(FAISS / Chroma / Pinecone)
-|
-v
-Redis / RabbitMQ
-(Broker + Task State Tracking)
-
-yaml
-Copy code
+```mermaid
+graph TD
+    Client["Browser (Next.js on Vercel)"] --> Gateway["API Gateway (FastAPI)"]
+    
+    Gateway --> Auth["Auth Service (Auth0/JWT)"]
+    Gateway --> Upload["Upload Service"]
+    Gateway --> Query["Query Service"]
+    Gateway --> Admin["Admin Service"]
+    
+    Upload --> Storage["Object Storage (S3 / GCS)"]
+    Upload --> Mongo["MongoDB (Users, Docs, Metadata)"]
+    
+    Storage --> Pipeline["Async Processing Pipeline (Celery Workers)"]
+    
+    Pipeline --> ML["Embeddings + Chunking"]
+    
+    ML --> VectorDB["Vector Database (FAISS / Chroma / Pinecone)"]
+    ML <--> Broker["Redis / RabbitMQ (Broker + Task State)"]
+```
 
 ---
 
@@ -284,6 +274,21 @@ Used to:
 
 ---
 
+## 🧪 Full-Stack Testing Architecture
+
+**Status:** ✅ Implemented
+
+IntelliDoc features a robust, production-grade automated testing architecture across the entire platform. Designed to run completely offline, it ensures **100% mocked infrastructure** with zero live API calls.
+
+- **Auth Service (Node.js):** Jest, ts-jest, Supertest (In-memory MongoDB, stubbed Auth0)
+- **AI Backend (Python):** pytest, pytest-mock, httpx (Synchronous Celery task execution, mocked ML integrations)
+- **Frontend (Next.js):** Vitest, React Testing Library, Playwright, MSW (API interception, complex layout mocking)
+
+**Total Tests:** 228+  
+For extensive details, view the [Full Testing Architecture](TESTING.md).
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -316,6 +321,11 @@ Used to:
 - Hugging Face Spaces
 - Grafana
 
+### Testing
+- Jest, Supertest
+- Pytest, pytest-mock
+- Vitest, Playwright, MSW
+
 ---
 
 ## 📈 Scalability & Reliability
@@ -336,6 +346,7 @@ Used to:
 - [x] Async pipelines
 - [x] Tri-DB architecture
 - [x] Dockerized deployment
+- [x] Automated full-stack test suite (228+ tests)
 
 ### Phase 2 — Intelligence 🚧
 - [ ] Advanced RAG
