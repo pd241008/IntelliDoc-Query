@@ -5,6 +5,11 @@ export interface IUser extends Document {
   email?: string;
   name?: string;
   picture?: string;
+
+  role: string;
+
+  lastLoginAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,12 +35,26 @@ const UserSchema = new Schema<IUser>(
     picture: {
       type: String,
     },
+
+    role: {
+      type: String,
+      default: "user",
+    },
+
+    lastLoginAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
     versionKey: false,
   },
 );
+
+/**
+ * Ensure fast lookup by Auth0 ID
+ */
+UserSchema.index({ auth0Id: 1 });
 
 const User: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
