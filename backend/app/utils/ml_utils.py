@@ -1,8 +1,11 @@
 # app/utils/ml_utils.py
 
 from typing import List, Dict
-from chromadb import Client
-from chromadb.config import Settings
+import os
+from chromadb import CloudClient
+from dotenv import load_dotenv
+
+load_dotenv()
 from sentence_transformers import SentenceTransformer
 import uuid
 
@@ -13,16 +16,20 @@ import uuid
 # Sentence Transformer model (load once per worker)
 _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Chroma client (persistence is AUTOMATIC)
-_chroma_client = Client(
-    Settings(
-        persist_directory="./chroma",
-        anonymized_telemetry=False
-    )
+CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
+CHROMA_TENANT = os.getenv("CHROMA_TENANT")
+CHROMA_DATABASE = os.getenv("CHROMA_DATABASE")
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "docsense")
+
+# Chroma client (Cloud connection)
+_chroma_client = CloudClient(
+    api_key=CHROMA_API_KEY,
+    tenant=CHROMA_TENANT,
+    database=CHROMA_DATABASE,
 )
 
 _collection = _chroma_client.get_or_create_collection(
-    name="documents"
+    name=CHROMA_COLLECTION_NAME
 )
 
 # --------------------------------------------------
