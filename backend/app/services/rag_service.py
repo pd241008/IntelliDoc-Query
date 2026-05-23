@@ -2,14 +2,10 @@ from typing import Dict, List
 
 from app.rag.query_embedding import embed_query
 from app.services.search_service import semantic_search
-from app.rag.context_builder import build_context
-from app.rag.llm_stub import generate_answer
+from app.services.llm_chain_service import run_llm
 
 
-async def run_rag_pipeline(
-    query: str,
-    top_k: int = 3
-) -> Dict[str, object]:
+async def run_rag_pipeline(query: str, top_k: int = 3) -> Dict[str, object]:
     """
     Full RAG pipeline orchestrator.
 
@@ -20,11 +16,8 @@ async def run_rag_pipeline(
     4. Generate LLM answer
     """
 
-     # 1️⃣ Semantic Search (raw query, unchanged internals)
-    results = semantic_search(
-        query=query,
-        limit=top_k
-    )
+    # 1️⃣ Semantic Search (raw query, unchanged internals)
+    results = semantic_search(query=query, limit=top_k)
 
     # 2️⃣ Extract documents (contract-level only)
     documents: List[str] = [
@@ -33,14 +26,8 @@ async def run_rag_pipeline(
         if isinstance(item, dict) and item.get("document")
     ]
 
-    # 3️⃣ Build context
-    context: str = build_context(documents)
+    # 3️⃣ & 4️⃣ Build Context & Generate Answer via Service Layer
+    answer: str = run_llm(query, documents)
 
-    # 4️⃣ Generate answer
-    answer: str = generate_answer(query, context)
+    return {"query": query, "answer": answer, "sources": documents}
 
-    return {
-        "query": query,
-        "answer": answer,
-        "sources": documents
-    }
