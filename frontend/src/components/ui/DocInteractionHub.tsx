@@ -12,6 +12,7 @@ interface DocInteractionHubProps {
 interface ChatMessage {
   role: "ai" | "user";
   content: string;
+  sources?: string[];
 }
 
 export default function DocInteractionHub({
@@ -58,7 +59,10 @@ export default function DocInteractionHub({
 
       const data = await response.json();
 
-      setMessages((prev) => [...prev, { role: "ai", content: data.answer }]);
+      setMessages((prev) => [
+        ...prev, 
+        { role: "ai", content: data.answer, sources: data.sources }
+      ]);
     } catch (error) {
       console.error(error);
       setMessages((prev) => [
@@ -129,16 +133,35 @@ export default function DocInteractionHub({
           {/* AI Chat History (The RAG Interaction) */}
           <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
             {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`p-4 border-2 border-black rounded-2xl max-w-[90%] shadow-[4px_4px_0px_black] ${
-                  msg.role === "ai"
-                    ? "bg-[#cfe9ff] rounded-tl-none self-start"
-                    : "bg-white rounded-tr-none self-end"
-                }`}>
-                <p className="text-sm font-bold leading-relaxed whitespace-pre-wrap">
-                  {msg.content}
-                </p>
+              <div key={idx} className="flex flex-col gap-2">
+                <div
+                  className={`p-4 border-2 border-black rounded-2xl max-w-[90%] shadow-[4px_4px_0px_black] ${
+                    msg.role === "ai"
+                      ? "bg-[#cfe9ff] rounded-tl-none self-start"
+                      : "bg-white rounded-tr-none self-end"
+                  }`}>
+                  <p className="text-sm font-bold leading-relaxed whitespace-pre-wrap">
+                    {msg.content}
+                  </p>
+                </div>
+                {/* Source Citations */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="self-start flex flex-col gap-1 mt-1 ml-2 max-w-[90%]">
+                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">
+                      Sources Used:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {msg.sources.map((source, sIdx) => (
+                        <div
+                          key={sIdx}
+                          className="bg-[#faf9f3] border-2 border-black rounded-md px-2 py-1 shadow-[2px_2px_0px_black] text-[10px] font-bold overflow-hidden text-ellipsis whitespace-nowrap max-w-full hover:whitespace-normal cursor-help"
+                          title={source}>
+                          "{source.substring(0, 60)}..."
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
