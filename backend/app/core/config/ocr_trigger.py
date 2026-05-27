@@ -7,7 +7,7 @@ from app.data_access.redis.redis_repo import (
     mark_pipeline_activity
 )
 
-async def trigger_ocr_pipeline(file_id: str):
+async def trigger_ocr_pipeline(file_id: str, client_id: str):
     # Initial queue state
     await update_status(
         file_id=file_id,
@@ -27,7 +27,7 @@ async def trigger_ocr_pipeline(file_id: str):
                 status="Running"
             )
 
-            await ocr_service.run_document_ocr_workflow(file_id)
+            await ocr_service.run_document_ocr_workflow(file_id, client_id)
 
             await update_status(
                 file_id=file_id,

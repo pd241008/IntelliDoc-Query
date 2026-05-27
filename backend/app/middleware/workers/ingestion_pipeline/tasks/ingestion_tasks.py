@@ -54,12 +54,13 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 100) -> List[str
 # -----------------------------------------------------
 
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
-def clean_text_task(self, file_id: str, raw_ocr_text: str) -> str:
+def clean_text_task(self, file_id: str, client_id: str, raw_ocr_text: str) -> str:
     logger.info(f"[{file_id}] Cleaning OCR text")
     cleaned = " ".join(raw_ocr_text.split())
     
     # Use 'pipeline:' prefix to avoid WRONGTYPE collisions with other services
     redis_client.hset(f"pipeline:{file_id}", "clean_text", cleaned)
+    redis_client.hset(f"pipeline:{file_id}", "client_id", client_id)
     
     return file_id
 
@@ -116,9 +117,10 @@ def store_in_chroma_task(self, file_id: str) -> str:
     
     chunks_json = redis_client.hget(f"pipeline:{file_id}", "chunks")
     embeddings_json = redis_client.hget(f"pipeline:{file_id}", "embeddings")
+    client_id = redis_client.hget(f"pipeline:{file_id}", "client_id")
     
-    if not isinstance(chunks_json, str) or not isinstance(embeddings_json, str):
-        raise ValueError(f"Missing or invalid chunks/embeddings in Redis for {file_id}")
+    if not isinstance(chunks_json, str) or not isinstance(embeddings_json, str) or not isinstance(client_id, str):
+        raise ValueError(f"Missing or invalid chunks/embeddings/client_id in Redis for {file_id}")
         
     chunks = json.loads(chunks_json)
     embeddings = json.loads(embeddings_json)
@@ -128,6 +130,7 @@ def store_in_chroma_task(self, file_id: str) -> str:
     metadatas: List[Metadata] = [
         {
             "file_id": file_id,
+            "client_id": client_id,
             "chunk_index": i
         }
         for i in range(len(chunks))

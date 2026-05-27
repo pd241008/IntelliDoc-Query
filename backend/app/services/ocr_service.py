@@ -35,7 +35,7 @@ def run_ocr_on_image(img: Image.Image) -> str:
 # -----------------------------
 # OCR Workflow
 # -----------------------------
-async def run_document_ocr_workflow(file_id: str) -> str:
+async def run_document_ocr_workflow(file_id: str, client_id: str) -> str:
     """
     Retrieves a file, performs OCR based on its type (PDF or Image),
     stores the extracted text in Redis, and triggers the ingestion pipeline.
@@ -111,7 +111,7 @@ async def run_document_ocr_workflow(file_id: str) -> str:
         # Trigger ingestion pipeline
         # -----------------------------
         # Ignored to resolve Pylance false-positive on Celery's dynamically added `.delay` method
-        start_ingestion_pipeline.delay(file_id, extracted_text)  # type: ignore
+        start_ingestion_pipeline.delay(file_id, client_id, extracted_text)  # type: ignore
         logger.debug(f"Ingestion pipeline triggered for {file_id}")
 
         return extracted_text

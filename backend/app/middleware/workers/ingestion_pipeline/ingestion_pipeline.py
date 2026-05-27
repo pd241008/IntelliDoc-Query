@@ -15,7 +15,7 @@ from app.middleware.workers.ingestion_pipeline.tasks.ingestion_tasks import (
 )
 
 @shared_task(name="start_ingestion_pipeline")
-def start_ingestion_pipeline(file_id: str, raw_ocr_text: str):
+def start_ingestion_pipeline(file_id: str, client_id: str, raw_ocr_text: str):
     try:
         mark_pipeline("ingestion", "running")
 
@@ -28,7 +28,7 @@ def start_ingestion_pipeline(file_id: str, raw_ocr_text: str):
         # The returned `file_id` from clean_task is automatically passed 
         # as the first argument to chunk_task, and so on down the chain.
         workflow: Signature = chain(
-            clean_task.s(file_id, raw_ocr_text),
+            clean_task.s(file_id, client_id, raw_ocr_text),
             chunk_task.s(),
             embed_task.s(),
             store_task.s(),

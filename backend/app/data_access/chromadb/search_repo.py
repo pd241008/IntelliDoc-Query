@@ -12,7 +12,7 @@ def _get_collection():
     return client.get_collection("docsense")
 
 
-def query_documents(query: str, limit: int = 5) -> List[Dict[str, Any]]:
+def query_documents(query: str, limit: int = 5, client_id: str = "") -> List[Dict[str, Any]]:
     """
     Pure data access layer.
     No pipeline knowledge.
@@ -20,10 +20,14 @@ def query_documents(query: str, limit: int = 5) -> List[Dict[str, Any]]:
     """
     collection = _get_collection()
 
-    result = collection.query(
-        query_texts=[query],
-        n_results=limit,
-    )
+    kwargs = {
+        "query_texts": [query],
+        "n_results": limit,
+    }
+    if client_id:
+        kwargs["where"] = {"client_id": client_id}
+
+    result = collection.query(**kwargs)
 
     if not result:
         return []
