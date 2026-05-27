@@ -1,11 +1,13 @@
 # app/api/upload/upload.py
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import secrets
 from pathlib import Path
 import os
+import asyncio
 
 from app.data_access.redis import file_repo
+from app.data_access.mongodb.document_repo import create_document
 from app.core.config.ocr_trigger import trigger_ocr_pipeline
 
 router = APIRouter(tags=["Upload"])
@@ -21,7 +23,10 @@ ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"]
 # /upload — POST
 # ==================================================
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    client_id: str = Form(...),
+    file: UploadFile = File(...)
+):
 
     # 1️⃣ FILE SIZE CHECK
     file.file.seek(0, os.SEEK_END)
@@ -60,9 +65,23 @@ async def upload_file(file: UploadFile = File(...)):
             detail=f"Could not save file: {str(e)}"
         )
 
+    # 3.5️⃣ SAVE METADATA TO MONGODB
+    try:
+        await asyncio.to_thread(
+            create_document,
+            file_id=file_id,
+            client_id=client_id,
+            filename=file.filename
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not save document metadata: {str(e)}"
+        )
+
     # 4️⃣ ASYNC OCR PIPELINE TRIGGER
     try:
-        await trigger_ocr_pipeline(file_id)
+        await trigger_ocr_pipeline(file_id, client_id)
     except Exception as e:
         # Upload success ≠ pipeline success
         print(f"[WARN] OCR trigger failed for {file_id}: {e}")

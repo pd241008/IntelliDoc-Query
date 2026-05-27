@@ -5,7 +5,8 @@ from app.data_access.chromadb.search_repo import query_documents
 
 def semantic_search(
     query: str,
-    limit: int = 5
+    limit: int = 5,
+    client_id: str = ""
 ) -> List[Dict[str, Any]]:
     """
     Semantic Search Pipeline (Service Layer)
@@ -19,7 +20,8 @@ def semantic_search(
 
     results = query_documents(
         query=query,
-        limit=limit
+        limit=limit,
+        client_id=client_id
     )
 
     if not results:
