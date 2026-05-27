@@ -22,17 +22,17 @@ Answer:"""
 rag_chain = prompt_template | llm
 
 
-def generate_answer(query: str, context: str) -> str:
+def generate_answer_stream(query: str, context: str):
     """
     Generates an answer using Gemini given the provided context.
-    This maintains Separation of Concerns: the VectorDB logic stays outside!
+    Yields chunks for streaming.
     """
     if not context or context.strip() == "No relevant documents found.":
-        return "I could not find relevant information in the uploaded documents to answer your question."
+        yield "I could not find relevant information in the uploaded documents to answer your question."
+        return
         
-    response = rag_chain.invoke({
+    for chunk in rag_chain.stream({
         "context": context,
         "query": query
-    })
-    
-    return response.content
+    }):
+        yield chunk.content

@@ -12,6 +12,7 @@ def semantic_search(
 
     Responsibilities:
     - Accept raw query text
+    - TODO: Implement Hybrid Search (Keyword + Semantic) to improve accuracy.
     - Delegate search to data access layer
     - Normalize results for downstream pipelines
     """

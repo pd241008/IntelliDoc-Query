@@ -43,7 +43,13 @@ export default function DocInteractionHub({
 
     const userQuery = inputValue.trim();
     setInputValue("");
-    setMessages((prev) => [...prev, { role: "user", content: userQuery }]);
+    
+    // Append user message and an empty AI placeholder message
+    setMessages((prev) => [
+      ...prev, 
+      { role: "user", content: userQuery },
+      { role: "ai", content: "", sources: [] }
+    ]);
     setIsTyping(true);
 
     try {
@@ -53,28 +59,59 @@ export default function DocInteractionHub({
         body: JSON.stringify({ query: userQuery, top_k: 3 }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         throw new Error("Failed to fetch AI response");
       }
 
-      const data = await response.json();
+      setIsTyping(false); // Connection established, streaming starts
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
 
-      setMessages((prev) => [
-        ...prev, 
-        { role: "ai", content: data.answer, sources: data.sources }
-      ]);
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunkString = decoder.decode(value, { stream: true });
+          const lines = chunkString.split("\n").filter((line) => line.trim() !== "");
+          
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              
+              setMessages((prev) => {
+                const newMessages = [...prev];
+                const lastIdx = newMessages.length - 1;
+                const lastMsg = { ...newMessages[lastIdx] };
+
+                if (parsed.type === "sources") {
+                  lastMsg.sources = parsed.data;
+                } else if (parsed.type === "chunk") {
+                  lastMsg.content += parsed.data;
+                }
+                
+                newMessages[lastIdx] = lastMsg;
+                return newMessages;
+              });
+            } catch (e) {
+              console.error("Error parsing NDJSON line:", line);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error(error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          content:
-            "Sorry, I encountered an error communicating with the RAG service.",
-        },
-      ]);
-    } finally {
       setIsTyping(false);
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        newMessages[lastIdx] = {
+          role: "ai",
+          content: "Sorry, I encountered an error communicating with the RAG service.",
+        };
+        return newMessages;
+      });
     }
   };
 

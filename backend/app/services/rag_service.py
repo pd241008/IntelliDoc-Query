@@ -1,22 +1,14 @@
-from typing import Dict, List
-
+from typing import Dict, List, AsyncGenerator
+import json
 from app.rag.query_embedding import embed_query
 from app.services.search_service import semantic_search
-from app.services.llm_chain_service import run_llm
+from app.services.llm_chain_service import stream_llm
 
-
-async def run_rag_pipeline(query: str, top_k: int = 3) -> Dict[str, object]:
+async def stream_rag_pipeline(query: str, top_k: int = 3) -> AsyncGenerator[str, None]:
     """
-    Full RAG pipeline orchestrator.
-
-    Steps:
-    1. Embed user query
-    2. Perform vector similarity search
-    3. Build context from retrieved documents
-    4. Generate LLM answer
+    Full RAG pipeline orchestrator with Streaming capabilities.
     """
-
-    # 1️⃣ Semantic Search (raw query, unchanged internals)
+    # 1️⃣ Semantic Search
     results = semantic_search(query=query, limit=top_k)
 
     # 2️⃣ Extract documents (contract-level only)
@@ -26,8 +18,9 @@ async def run_rag_pipeline(query: str, top_k: int = 3) -> Dict[str, object]:
         if isinstance(item, dict) and item.get("document")
     ]
 
-    # 3️⃣ & 4️⃣ Build Context & Generate Answer via Service Layer
-    answer: str = run_llm(query, documents)
+    # Yield the sources first as NDJSON
+    yield json.dumps({"type": "sources", "data": documents}) + "\n"
 
-    return {"query": query, "answer": answer, "sources": documents}
-
+    # 3️⃣ & 4️⃣ Build Context & Stream Answer
+    for chunk in stream_llm(query, documents):
+        yield json.dumps({"type": "chunk", "data": chunk}) + "\n"
