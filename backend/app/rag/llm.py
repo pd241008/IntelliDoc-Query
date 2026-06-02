@@ -1,5 +1,5 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 # Initialize the Gemini model (requires GOOGLE_API_KEY in .env)
 llm = ChatGoogleGenerativeAI(

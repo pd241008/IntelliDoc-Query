@@ -6,8 +6,8 @@ install:
 	cd auth && npm install
 	@echo "Installing Frontend dependencies..."
 	cd frontend && npm install
-	@echo "Installing Backend dependencies..."
-	cd backend && pip install -r requirements.api.txt -r requirements.worker.txt -r requirements.test.txt -r requirements.rag.txt
+	@echo "Installing Backend dependencies into a virtual environment..."
+	python3 -m venv .venv && .venv/bin/pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements.api.txt -r backend/requirements.worker.txt -r backend/requirements.test.txt -r backend/requirements.rag.txt
 
 # --- Development Servers ---
 dev-auth:
@@ -20,7 +20,7 @@ dev-frontend:
 
 dev-backend:
 	@echo "Starting Backend Service..."
-	cd backend && uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && ../.venv/bin/python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 dev-all:
 	@echo "Starting all services concurrently..."
@@ -41,7 +41,7 @@ test-frontend-e2e:
 
 test-backend:
 	@echo "Running Backend tests..."
-	cd backend && pytest -v
+	cd backend && ../.venv/bin/pytest -v
 
 test-all: test-auth test-backend test-frontend-unit test-frontend-e2e
 

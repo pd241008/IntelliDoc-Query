@@ -57,9 +57,10 @@ export default function SystemHealthTooltip() {
         setServices(data.services || {});
 
         // Preserved original logic
+        // Fixed logic to handle backend returning 'ok'
         if (data.status === "degraded") {
           setStatus("degraded");
-        } else if (data.ok || data.status === "up") {
+        } else if (data.ok || data.status === "up" || data.status === "ok") {
           setStatus("healthy");
         } else {
           setStatus("down");
@@ -107,7 +108,15 @@ export default function SystemHealthTooltip() {
             {name.replace("_", " ")}
           </span>
           <span
-            className={state === "up" ? "text-green-600" : "text-amber-500"}>
+            className={
+              ["up", "connected", "healthy"].includes(state)
+                ? "text-green-600"
+                : ["idle", "running", "working"].includes(state)
+                ? "text-blue-500"
+                : ["down", "failed"].includes(state)
+                ? "text-red-500"
+                : "text-amber-500"
+            }>
             {state}
           </span>
         </li>
