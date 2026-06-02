@@ -55,10 +55,13 @@ def _get_status(key: str, default: dict) -> dict:
     if data is None:
         return default
 
-    # Redis returns bytes
+    # Redis returns bytes if decode_responses=False, but str if True
     if isinstance(data, bytes):
+        data = data.decode()
+        
+    if isinstance(data, str):
         try:
-            return json.loads(data.decode())
+            return json.loads(data)
         except Exception:
             return default
 
@@ -131,7 +134,16 @@ def get_health():
         DEFAULT_HEALTH["pipelines"]["semantic_search"]
     )
 
-    # Fix stale pipelines
+    # Fix stale pipelines and default logic
+    # Default to 'idle' if unknown, but 'down' if broker is disconnected
+    broker_is_down = broker_data["status"] != "connected"
+    
+    for pipe_data in [ingestion_data, search_data]:
+        if broker_is_down:
+            pipe_data["status"] = "down"
+        elif pipe_data["status"] == "unknown":
+            pipe_data["status"] = "idle"
+            
     if ingestion_data["status"] == "running" and _pipeline_stale(ingestion_data):
         ingestion_data["status"] = "idle"
 

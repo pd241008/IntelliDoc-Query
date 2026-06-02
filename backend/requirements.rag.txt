@@ -8,9 +8,9 @@ langgraph-sdk==0.2.15
 langsmith==0.4.59
 sentence-transformers  # let pip resolve torch
 transformers
-torch             # CPU-only, will install compatible with torchvision
-torchvision==0.17.2+cpu
-torchaudio==2.2.2+cpu
+torch
+torchvision
+torchaudio
 onnxruntime
 numpy<2.0.0
 scipy
