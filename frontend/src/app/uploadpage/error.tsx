@@ -54,8 +54,7 @@ export default function UploadError({ error, reset }: UploadErrorProps) {
           <span className="text-xs font-mono font-black uppercase leading-tight text-center">
             {error.message === "Unauthorized"
               ? "You must be logged in to upload documents. Please click 'Log In' in the navigation bar."
-              : error.message ||
-                "The AI engine encountered a timeout while analyzing your document."}
+              : "The system encountered an issue while processing your document. Please try again."}
           </span>
         </div>
 

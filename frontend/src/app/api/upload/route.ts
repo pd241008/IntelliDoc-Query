@@ -16,14 +16,23 @@ export async function POST(req: Request) {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:3000";
 
   try {
-    const formData = await req.formData();
+    const incomingFormData = await req.formData();
+    const newFormData = new FormData();
+    
+    // attach client_id
+    newFormData.append("client_id", userId);
 
-    // attach user_id
-    formData.append("user_id", userId);
+    // attach file explicitly with its filename
+    const file = incomingFormData.get("file");
+    if (file && typeof file === "object" && "name" in file) {
+      newFormData.append("file", file, file.name);
+    } else if (file) {
+      newFormData.append("file", file);
+    }
 
     const backendRes = await fetch(`${backendUrl}/upload`, {
       method: "POST",
-      body: formData,
+      body: newFormData,
     });
 
     const data = await backendRes.json();

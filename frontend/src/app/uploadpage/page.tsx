@@ -37,9 +37,8 @@ export default function UploadPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Intellidoc AI failed to process this document.",
-        );
+        const errorMessage = data.detail || data.error || "Intellidoc AI failed to process this document.";
+        throw new Error(errorMessage);
       }
 
       const doc: Document = {

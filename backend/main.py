@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the parent directory where .env is located
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.api_router import main_api_router
