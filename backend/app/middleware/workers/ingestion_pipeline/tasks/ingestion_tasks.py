@@ -162,6 +162,9 @@ def delete_redis_cache_task(self, file_id: str) -> Dict:
     redis_client.delete(f"data:{file_id}")
     redis_client.delete(f"pipeline:{file_id}")
 
+    from app.core.config.health import mark_pipeline
+    mark_pipeline("ingestion", "idle")
+
     logger.info(f"[{file_id}] Ingestion pipeline completed")
 
     return {
