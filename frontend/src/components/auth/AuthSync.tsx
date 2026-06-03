@@ -13,7 +13,9 @@ export default async function AuthSync() {
       token.startsWith("eyJ") ? "JWT ✅" : "Opaque ❌",
     );
 
-    const res = await fetch("http://localhost:5000/api/auth/sync-user", {
+    const authApiBaseUrl = process.env.NEXT_PUBLIC_AUTH_API_BASE_URL || "http://localhost:5000";
+    
+    const res = await fetch(`${authApiBaseUrl}/api/auth/sync-user`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,6 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.services.rag_service import stream_rag_pipeline
 
@@ -14,7 +18,8 @@ class QueryRequest(BaseModel):
     top_k: int = 3
 
 @router.post("/")
-async def query_documents(payload: QueryRequest):
+@limiter.limit("10/minute")
+async def query_documents(request: Request, payload: QueryRequest):
     return StreamingResponse(
         stream_rag_pipeline(
             query=payload.query,
