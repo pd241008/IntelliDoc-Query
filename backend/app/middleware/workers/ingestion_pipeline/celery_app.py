@@ -8,6 +8,11 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".env"))
 REDIS_URL = os.getenv("REDIS_URL")
 
+# Celery requires ssl_cert_reqs for rediss:// URLs
+if REDIS_URL and REDIS_URL.startswith("rediss://"):
+    if "ssl_cert_reqs" not in REDIS_URL:
+        REDIS_URL += "?ssl_cert_reqs=CERT_NONE" if "?" not in REDIS_URL else "&ssl_cert_reqs=CERT_NONE"
+
 # ✅ Explicitly include the exact paths to the files containing your @shared_task definitions
 celery_app = Celery(
     "docssense",
