@@ -2,37 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import DocCard from "@/components/ui/DocCard";
+import { useDocuments } from "@/context/DocumentContext";
+import { LucideFileArchive } from "lucide-react";
 
 export default function GalleryPage() {
   const router = useRouter();
+  const { documents, isLoading } = useDocuments();
 
-  // Updated mock data with reliable Unsplash IDs
-  const documents = [
-    {
-      id: "1",
-      title: "Driving License",
-      date: "2024-05-20",
-      img: "https://images.unsplash.com/photo-1580124030116-b51b16ee7f0b?q=80&w=800",
-    },
-    {
-      id: "2",
-      title: "Passport Main",
-      date: "2025-11-10",
-      img: "https://images.unsplash.com/photo-1569974498991-d3c12a504f95?q=80&w=800",
-    },
-    {
-      id: "3",
-      title: "Rental Agreement",
-      date: "2023-12-01",
-      img: "https://images.unsplash.com/photo-1554469384-e58fac16e23a?q=80&w=800",
-    },
-    {
-      id: "4",
-      title: "Insurance Policy",
-      date: "2024-01-15",
-      img: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=800",
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <h2 className="text-2xl font-black uppercase animate-pulse">Loading Vault...</h2>
+      </div>
+    );
+  }
 
   return (
     /* pt-16 ensures content starts comfortably below the navbar island */
@@ -57,17 +40,32 @@ export default function GalleryPage() {
       </div>
 
       {/* Main Grid Layout - constrained to 2 columns for a cleaner look */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        {documents.map((doc) => (
-          <DocCard
-            key={doc.id}
-            title={doc.title}
-            date={doc.date}
-            imageUrl={doc.img}
-            onClick={() => router.push(`/gallerypage/${doc.id}`)}
-          />
-        ))}
-      </div>
+      {documents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-20 bg-white border-4 border-black rounded-[40px] shadow-[12px_12px_0px_black] text-center">
+          <LucideFileArchive size={64} className="mb-6 opacity-20" />
+          <h2 className="text-3xl font-black uppercase tracking-tighter mb-4">Vault is Empty</h2>
+          <p className="text-gray-500 font-medium max-w-sm mb-8">
+            You haven't uploaded any documents yet. Head over to the upload page to securely add your first document.
+          </p>
+          <button
+            onClick={() => router.push("/uploadpage")}
+            className="px-8 py-4 rounded-full bg-[#cfe9ff] border-4 border-black font-black text-lg shadow-[6px_6px_0px_black] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all">
+            UPLOAD DOCUMENT
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {documents.map((doc) => (
+            <DocCard
+              key={doc.id}
+              title={doc.name}
+              date={doc.uploadDate || ""}
+              imageUrl={doc.fileUrl || "https://images.unsplash.com/photo-1568227450371-11d211cc95ce?q=80&w=800"}
+              onClick={() => router.push(`/gallerypage/${doc.id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

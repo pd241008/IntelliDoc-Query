@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 # Import the routers that were exposed in the __init__.py file
-from . import upload_router, health_router ,processing_router,query_router# Imports from __init__.py
+from . import upload_router, health_router, processing_router, query_router
 
 # Define the single main router object
 main_api_router = APIRouter()

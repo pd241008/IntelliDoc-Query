@@ -5,13 +5,16 @@ documents_collection = db["documents"]
 
 def create_document(file_id: str, client_id: str, filename: str):
     doc = {
-        "file_id": file_id,
-        "client_id": client_id,
+        "fileId": file_id,
+        "auth0Id": client_id,
         "filename": filename,
-        "status": "UPLOADED",
-        "created_at": datetime.datetime.utcnow()
+        "fileUrl": "", # placeholder until uploaded
+        "status": "pending",
+        "vectorIndexed": False,
+        "createdAt": datetime.datetime.utcnow(),
+        "updatedAt": datetime.datetime.utcnow()
     }
     documents_collection.insert_one(doc)
 
 def get_document(file_id: str):
-    return documents_collection.find_one({"file_id": file_id})
+    return documents_collection.find_one({"fileId": file_id})
