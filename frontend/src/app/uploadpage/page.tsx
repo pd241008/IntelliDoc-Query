@@ -13,6 +13,7 @@ export default function UploadPage() {
 
   const [name, setName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<Error | null>(null);
 
   const handleUploadLogic = async (selectedFile: File) => {
@@ -51,7 +52,7 @@ export default function UploadPage() {
       };
 
       addDocument(doc);
-      router.push("/gallerypage");
+      setUploadSuccess(true);
     } catch (error) {
       console.error("Upload error:", error);
       setUploadError(
@@ -68,6 +69,29 @@ export default function UploadPage() {
         error={uploadError}
         reset={() => setUploadError(null)}
       />
+    );
+  }
+
+  if (uploadSuccess) {
+    return (
+      <main className="min-h-screen bg-[#faf9f3] flex items-center justify-center p-6 font-sans text-black">
+        <div className="max-w-md w-full border-[6px] border-black rounded-[40px] bg-white p-10 shadow-[20px_20px_0px_#59ff7d] text-center relative overflow-hidden flex flex-col items-center">
+          <div className="w-24 h-24 mb-6 bg-[#59ff7d] border-4 border-black rounded-2xl shadow-[6px_6px_0px_black] rotate-3 flex items-center justify-center text-5xl">
+            ✓
+          </div>
+          <h2 className="text-4xl font-black mb-4 uppercase tracking-tighter leading-none">
+            Document <br /> Queued
+          </h2>
+          <p className="font-bold opacity-60 mb-8 uppercase text-[10px] tracking-[0.2em]">
+            AI processing has started in the background.
+          </p>
+          <button
+            onClick={() => router.push("/gallerypage")}
+            className="flex items-center justify-center gap-2 py-4 px-8 w-full rounded-full border-4 border-black bg-[#cfe9ff] font-black text-lg shadow-[6px_6px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
+            GO TO VAULT
+          </button>
+        </div>
+      </main>
     );
   }
 

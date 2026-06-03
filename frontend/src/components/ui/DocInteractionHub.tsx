@@ -6,7 +6,6 @@ import { useState, useRef, useEffect } from "react";
 
 interface DocInteractionHubProps {
   doc: { title: string; imageUrl: string; expiryDate: string; id: string };
-  onClose: () => void;
 }
 
 interface ChatMessage {
@@ -17,7 +16,6 @@ interface ChatMessage {
 
 export default function DocInteractionHub({
   doc,
-  onClose,
 }: DocInteractionHubProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -28,6 +26,8 @@ export default function DocInteractionHub({
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,7 +36,22 @@ export default function DocInteractionHub({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping, errorMsg]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isTyping) {
+      setLoadingStep(1);
+      let step = 1;
+      interval = setInterval(() => {
+        step = step >= 3 ? 3 : step + 1;
+        setLoadingStep(step);
+      }, 600); // Faster progression (600ms per step) so it's visible on fast queries
+    } else {
+      setLoadingStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [isTyping]);
 
   const handleSend = async () => {
     if (!inputValue.trim()) return;
@@ -45,6 +60,7 @@ export default function DocInteractionHub({
     setInputValue("");
     
     // Append user message and an empty AI placeholder message
+    setErrorMsg(null);
     setMessages((prev) => [
       ...prev, 
       { role: "user", content: userQuery },
@@ -104,29 +120,20 @@ export default function DocInteractionHub({
       console.error(error);
       setIsTyping(false);
       setMessages((prev) => {
+        // Remove the empty AI message we added since it failed
         const newMessages = [...prev];
-        const lastIdx = newMessages.length - 1;
-        newMessages[lastIdx] = {
-          role: "ai",
-          content: "Sorry, I encountered an error communicating with the RAG service.",
-        };
+        if (newMessages.length > 0 && newMessages[newMessages.length - 1].content === "") {
+          newMessages.pop();
+        }
         return newMessages;
       });
+      setErrorMsg(error instanceof Error ? error.message : "Sorry, I encountered an error communicating with the RAG service.");
     }
   };
 
   return (
-    <div className="fixed inset-0 z-200 flex items-center justify-center p-4 md:p-8 bg-[#faf9f3]/80 backdrop-blur-xl">
-      {/* Main Container */}
-      <div className="relative w-full h-full max-w-7xl bg-white border-4px border-black rounded-[40px] shadow-[16px_16px_0px_black] overflow-hidden flex flex-col lg:flex-row">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 z-210 p-2 bg-[#ff5a5a] border-2 border-black rounded-full shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
-          <LucideX size={24} strokeWidth={3} />
-        </button>
-
-        {/* LEFT: Document Preview Area */}
+    <div className="w-full h-[600px] bg-white border-[4px] border-black rounded-[40px] shadow-[12px_12px_0px_black] overflow-hidden flex flex-col lg:flex-row">
+      {/* LEFT: Document Preview Area */}
         <div className="flex-1 bg-[#e1e1e1] border-b-4 lg:border-b-0 lg:border-r-4 border-black p-8 flex flex-col gap-6 overflow-hidden">
           <div className="flex items-center gap-4">
             <h2 className="text-3xl font-black uppercase tracking-tighter">
@@ -203,9 +210,33 @@ export default function DocInteractionHub({
             ))}
 
             {isTyping && (
-              <div className="p-4 bg-[#cfe9ff] border-2 border-black rounded-2xl rounded-tl-none self-start max-w-[90%] shadow-[4px_4px_0px_black] flex items-center gap-2">
-                <Loader2 className="animate-spin" size={16} />
-                <p className="text-sm font-bold">Analyzing documents...</p>
+              <div className="p-4 bg-white border-4 border-black rounded-2xl rounded-tl-none self-start w-full max-w-[90%] shadow-[6px_6px_0px_black] flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="animate-spin text-[#ff5c00]" size={20} strokeWidth={3} />
+                  <p className="text-sm font-black uppercase tracking-widest text-black">
+                    {loadingStep === 1 ? "Initializing AI Model..." : 
+                     loadingStep === 2 ? "Searching Documents..." : 
+                     "Generating Answer..."}
+                  </p>
+                </div>
+                {/* Progress Bar Container */}
+                <div className="w-full h-3 border-2 border-black rounded-full overflow-hidden bg-[#e1e1e1]">
+                  <div 
+                    className="h-full bg-[#ffde59] transition-all duration-1000 ease-in-out border-r-2 border-black" 
+                    style={{ width: `${(loadingStep / 3) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {errorMsg && (
+              <div className="p-4 border-4 border-black bg-[#fff0f0] rounded-2xl self-start max-w-[90%] shadow-[6px_6px_0px_#ff5a5a] flex flex-col gap-2 mt-2">
+                <div className="flex items-center gap-2 text-[#ff5a5a]">
+                  <LucideX size={20} strokeWidth={4} />
+                  <span className="font-black uppercase text-sm tracking-widest">Error</span>
+                </div>
+                <p className="text-xs font-bold leading-relaxed text-black">
+                  {errorMsg}
+                </p>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -234,7 +265,6 @@ export default function DocInteractionHub({
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }
