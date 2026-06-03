@@ -69,10 +69,10 @@ export default function DocInteractionHub({
     setIsTyping(true);
 
     try {
-      const response = await fetch("http://localhost:8000/query/", {
+      const response = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: userQuery, top_k: 3 }),
+        body: JSON.stringify({ query: userQuery, top_k: 3, doc_id: doc.id }),
       });
 
       if (!response.ok || !response.body) {
@@ -145,7 +145,7 @@ export default function DocInteractionHub({
           </div>
 
           <div className="flex-1 border-[3px] border-black bg-white rounded-2xl overflow-auto shadow-[8px_8px_0px_rgba(0,0,0,0.1)] p-4">
-            <Image
+            <img
               src={doc.imageUrl}
               alt="Document"
               className="w-full h-auto rounded-lg"

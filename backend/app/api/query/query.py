@@ -10,6 +10,7 @@ from typing import Optional
 class QueryRequest(BaseModel):
     query: str
     client_id: Optional[str] = ""
+    doc_id: str
     top_k: int = 3
 
 @router.post("/")
@@ -18,7 +19,8 @@ async def query_documents(payload: QueryRequest):
         stream_rag_pipeline(
             query=payload.query,
             top_k=payload.top_k,
-            client_id=payload.client_id
+            client_id=payload.client_id,
+            doc_id=payload.doc_id
         ),
         media_type="application/x-ndjson"
     )

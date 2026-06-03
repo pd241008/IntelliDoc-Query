@@ -11,7 +11,8 @@ def extract_keywords(query: str) -> List[str]:
 def semantic_search(
     query: str,
     limit: int = 5,
-    client_id: str = ""
+    client_id: str = "",
+    doc_id: str = ""
 ) -> List[Dict[str, Any]]:
     """
     Hybrid Search Pipeline (Service Layer)
@@ -24,6 +25,7 @@ def semantic_search(
         query=query,
         limit=limit,
         client_id=client_id,
+        doc_id=doc_id,
         query_embeddings=query_embeddings
     )
 
@@ -36,6 +38,7 @@ def semantic_search(
             query=query,
             limit=limit,
             client_id=client_id,
+            doc_id=doc_id,
             query_embeddings=query_embeddings,
             where_document=where_document
         )

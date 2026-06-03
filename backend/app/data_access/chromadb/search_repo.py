@@ -12,7 +12,7 @@ def _get_collection():
     return client.get_collection("docsense")
 
 
-def query_documents(query: str, limit: int = 5, client_id: str = "", query_embeddings: list = None, where_document: dict = None) -> List[Dict[str, Any]]:
+def query_documents(query: str, limit: int = 5, client_id: str = "", doc_id: str = "", query_embeddings: list = None, where_document: dict = None) -> List[Dict[str, Any]]:
     """
     Pure data access layer.
     No pipeline knowledge.
@@ -29,8 +29,16 @@ def query_documents(query: str, limit: int = 5, client_id: str = "", query_embed
     else:
         kwargs["query_texts"] = [query]
 
+    where_conditions = []
     if client_id:
-        kwargs["where"] = {"client_id": client_id}
+        where_conditions.append({"client_id": client_id})
+    if doc_id:
+        where_conditions.append({"file_id": doc_id})
+        
+    if len(where_conditions) == 1:
+        kwargs["where"] = where_conditions[0]
+    elif len(where_conditions) > 1:
+        kwargs["where"] = {"$and": where_conditions}
         
     if where_document:
         kwargs["where_document"] = where_document
