@@ -6,9 +6,10 @@ from app.services.rag_service import stream_rag_pipeline
 
 router = APIRouter(prefix="/query", tags=["RAG"])
 
+from typing import Optional
 class QueryRequest(BaseModel):
     query: str
-    client_id: str
+    client_id: Optional[str] = ""
     top_k: int = 3
 
 @router.post("/")

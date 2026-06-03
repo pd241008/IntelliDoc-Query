@@ -27,10 +27,16 @@ redis_client = redis.from_url(
     decode_responses=True
 )
 
-# Load embedding model once per worker
-logger.info("Loading embedding model...")
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-logger.info("Embedding model loaded")
+# Load embedding model once per worker when needed
+embedding_model = None
+
+def _get_embedding_model():
+    global embedding_model
+    if embedding_model is None:
+        logger.info("Loading embedding model...")
+        embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info("Embedding model loaded")
+    return embedding_model
 
 # -----------------------------------------------------
 # Utility: Text Chunking
@@ -95,7 +101,7 @@ def generate_embeddings_task(self, file_id: str) -> str:
         
     chunks = json.loads(chunks_json)
 
-    embeddings = embedding_model.encode(
+    embeddings = _get_embedding_model().encode(
         chunks,
         batch_size=32,
         show_progress_bar=False

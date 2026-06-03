@@ -31,8 +31,12 @@ def generate_answer_stream(query: str, context: str):
         yield "I could not find relevant information in the uploaded documents to answer your question."
         return
         
-    for chunk in rag_chain.stream({
-        "context": context,
-        "query": query
-    }):
-        yield chunk.content
+    try:
+        for chunk in rag_chain.stream({
+            "context": context,
+            "query": query
+        }):
+            yield chunk.content
+    except Exception as e:
+        print(f"LLM Generation failed: {e}")
+        yield "I encountered an error while trying to answer your question. Please check your API key configuration."
