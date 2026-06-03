@@ -4,8 +4,8 @@ import os
 from celery import Celery
 from dotenv import load_dotenv
 
-load_dotenv()
-
+# Load environment variables from the parent directory where .env is located
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".env"))
 REDIS_URL = os.getenv("REDIS_URL")
 
 # ✅ Explicitly include the exact paths to the files containing your @shared_task definitions

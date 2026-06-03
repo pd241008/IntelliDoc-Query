@@ -4,7 +4,6 @@ import { syncUserInDB } from "../services/user_service";
 export const syncUser = async (req: Request, res: Response): Promise<void> => {
   console.log("📥 Sync request received");
   console.log("📦 Request body:", req.body);
-  console.log("🔐 Auth object:", req.auth);
 
   try {
     // Step 1: Verify Auth0 token exists
