@@ -13,8 +13,13 @@ import uuid
 # GLOBAL INITIALIZATION (safe for workers)
 # --------------------------------------------------
 
-# Sentence Transformer model (load once per worker)
-_embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+_embedding_model = None
+
+def _get_model():
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedding_model
 
 CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
 CHROMA_TENANT = os.getenv("CHROMA_TENANT")
@@ -88,7 +93,7 @@ def create_embeddings_utility(text: str) -> List[Dict]:
     ]
     """
     chunks = chunk_text(text)
-    embeddings = _embedding_model.encode(chunks, convert_to_list=True)
+    embeddings = _get_model().encode(chunks, convert_to_list=True)
 
     return [
         {
