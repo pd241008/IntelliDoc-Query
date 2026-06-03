@@ -5,7 +5,16 @@ from langchain_core.prompts import PromptTemplate
 
 rewrite_prompt = PromptTemplate(
     input_variables=["query"],
-    template="You are an expert search assistant. Rewrite the following user query to be more precise and optimized for keyword and semantic search in a document database. Return ONLY the rewritten query without any additional text or quotes.\n\nOriginal Query: {query}\nRewritten Query:"
+    template="""You are an expert search query optimization assistant. Your task is to rewrite the user's natural language question into a highly optimized search query for a Vector Database and Keyword Hybrid Search engine.
+
+Guidelines:
+1. Strip away conversational filler (e.g., "Can you tell me", "I want to know").
+2. Retain all core entities, technical terms, and critical keywords.
+3. If the query implies a need for a summary, ensure words like "summary", "overview", or "key points" are included.
+4. Return ONLY the rewritten query string. Do NOT include quotes, explanations, or any other text.
+
+Original Query: {query}
+Optimized Search Query:"""
 )
 
 def optimize_query(query: str) -> str:
