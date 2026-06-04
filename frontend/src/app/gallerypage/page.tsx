@@ -61,7 +61,7 @@ export default function GalleryPage() {
               id={doc.id}
               title={doc.name}
               date={doc.uploadDate || ""}
-              imageUrl={doc.fileUrl || "https://images.unsplash.com/photo-1568227450371-11d211cc95ce?q=80&w=800"}
+              imageUrl={doc.fileUrl || ""}
               onClick={() => router.push(`/gallerypage/${doc.id}`)}
             />
           ))}

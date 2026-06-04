@@ -45,7 +45,7 @@ export default function DocAIDetailPage() {
       {/* Interaction Hub Card */}
       <DocInteractionHub doc={{
         title: doc.name,
-        imageUrl: doc.fileUrl || "https://images.unsplash.com/photo-1568227450371-11d211cc95ce?q=80&w=800",
+        imageUrl: doc.fileUrl || "",
         expiryDate: doc.expiryDate || "ANALYZING...",
         id: doc.id
       }} />

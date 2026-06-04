@@ -367,10 +367,10 @@ A dedicated **Admin Dashboard** is available for system management and metrics. 
 - [x] Streaming responses
 
 ### Phase 3 — Productization 🔜
-- [ ] Next.js dashboard
+- [x] Next.js dashboard
 - [ ] Monitoring dashboards
 - [x] Role-based access control (Admin OTP)
-- [ ] Multi-tenant support
+- [x] Multi-tenant support
 
 ---
 

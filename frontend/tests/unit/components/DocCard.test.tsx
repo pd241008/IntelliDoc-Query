@@ -12,6 +12,7 @@ import { describe, it, expect, vi } from "vitest";
 import DocCard from "@/components/ui/DocCard";
 
 const defaultProps = {
+  id: "test-doc-1",
   title: "Driving License",
   imageUrl: "https://example.com/license.jpg",
   date: "2024-05-20",
