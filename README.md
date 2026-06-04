@@ -289,6 +289,18 @@ For extensive details, view the [Full Testing Architecture](TESTING.md).
 
 ---
 
+## 🛡️ Admin Dashboard & OTP Access
+
+**Status:** ✅ Implemented
+
+A dedicated **Admin Dashboard** is available for system management and metrics. To ensure high security for administrative access:
+- **Neo-Brutalist Portal**: A custom-designed `Next.js` interface available at `/admin`.
+- **OTP Authentication**: Admins log in using an email-based One-Time Password (OTP).
+- **Rate-Limiting**: The Auth Microservice enforces strict IP-based (5/hr) and Email-based (3/hr) rate-limits to prevent OTP spamming and brute-force attacks.
+- **TTL Security**: OTPs expire and are automatically cleared from MongoDB after 5 minutes.
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -348,16 +360,16 @@ For extensive details, view the [Full Testing Architecture](TESTING.md).
 - [x] Dockerized deployment
 - [x] Automated full-stack test suite (228+ tests)
 
-### Phase 2 — Intelligence 🚧
-- [ ] Advanced RAG
-- [ ] Prompt optimization
-- [ ] Source citation
-- [ ] Streaming responses
+### Phase 2 — Intelligence ✅
+- [x] Advanced RAG
+- [x] Prompt optimization
+- [x] Source citation
+- [x] Streaming responses
 
 ### Phase 3 — Productization 🔜
 - [ ] Next.js dashboard
 - [ ] Monitoring dashboards
-- [ ] Role-based access control
+- [x] Role-based access control (Admin OTP)
 - [ ] Multi-tenant support
 
 ---
