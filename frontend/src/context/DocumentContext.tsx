@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Document } from "@/types";
-import { sampleDocuments } from "../sampleDocuments";
 
 type DocumentContextType = {
   documents: Document[];

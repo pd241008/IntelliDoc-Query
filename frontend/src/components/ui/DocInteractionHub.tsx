@@ -1,6 +1,6 @@
 "use client";
 
-import { LucideX, LucideZap, LucideSend, Loader2 } from "lucide-react";
+import { LucideX, LucideZap, LucideSend, Loader2, LucideFileText } from "lucide-react";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 
@@ -144,12 +144,19 @@ export default function DocInteractionHub({
             </div>
           </div>
 
-          <div className="flex-1 border-[3px] border-black bg-white rounded-2xl overflow-auto shadow-[8px_8px_0px_rgba(0,0,0,0.1)] p-4">
-            <img
-              src={doc.imageUrl}
-              alt="Document"
-              className="w-full h-auto rounded-lg"
-            />
+          <div className="flex-1 border-[3px] border-black bg-white rounded-2xl overflow-auto shadow-[8px_8px_0px_rgba(0,0,0,0.1)] p-4 flex items-center justify-center">
+            {doc.imageUrl ? (
+              <img
+                src={doc.imageUrl}
+                alt="Document"
+                className="w-full h-auto rounded-lg"
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-4 opacity-30">
+                <LucideFileText size={80} strokeWidth={1} />
+                <p className="font-black uppercase text-sm tracking-widest">No Preview Available</p>
+              </div>
+            )}
           </div>
         </div>
 
