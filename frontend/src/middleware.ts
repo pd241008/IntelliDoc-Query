@@ -49,6 +49,14 @@ export function middleware(request: NextRequest) {
     return new NextResponse('Forbidden: Bot/Script access denied.', { status: 403 })
   }
 
+  // Admin route protection
+  if (request.nextUrl.pathname.startsWith('/admin') && !request.nextUrl.pathname.startsWith('/admin/login')) {
+    const adminToken = request.cookies.get('admin_token')?.value;
+    if (!adminToken) {
+      return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+  }
+
   return NextResponse.next()
 }
 
