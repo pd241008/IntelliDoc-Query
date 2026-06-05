@@ -125,6 +125,60 @@ export default function AdminDashboard() {
           )}
         </div>
       </section>
+
+      {/* ─── Monitoring Tools ─────────────────────────────────────── */}
+      <section className="mt-8">
+        <div className="bg-black text-white p-4 mb-0 inline-block">
+          <h3 className="text-xl font-black uppercase">Monitoring Tools</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-4 border-black p-6 bg-white shadow-[8px_8px_0px_black]">
+
+          {/* Grafana */}
+          <a
+            href="http://localhost:3001"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col gap-3 border-4 border-black p-6 bg-[#ff9800] shadow-[6px_6px_0px_black] hover:-translate-y-1 hover:shadow-[8px_8px_0px_black] transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">📊</span>
+              <div>
+                <p className="font-black text-xl uppercase tracking-tight">Grafana</p>
+                <p className="text-xs font-bold uppercase opacity-70">Request rates · Latency · Errors</p>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-80">
+              Live FastAPI dashboard — P50/P95/P99 latencies, error rates by endpoint, and in-progress request counts.
+            </p>
+            <span className="self-start px-3 py-1 bg-black text-white text-xs font-black uppercase">
+              localhost:3001 →
+            </span>
+          </a>
+
+          {/* DevTrace */}
+          <a
+            href="http://localhost:7700"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col gap-3 border-4 border-black p-6 bg-[#cfe9ff] shadow-[6px_6px_0px_black] hover:-translate-y-1 hover:shadow-[8px_8px_0px_black] transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">🧠</span>
+              <div>
+                <p className="font-black text-xl uppercase tracking-tight">DevTrace</p>
+                <p className="text-xs font-bold uppercase opacity-70">Request replay · SQL query engine</p>
+              </div>
+            </div>
+            <p className="text-sm font-bold opacity-80">
+              Distributed observability proxy — captures every API request/response cycle with microsecond precision. Enable with <code className="bg-black text-white px-1">DEVTRACE_ENABLED=true</code> in .env.
+            </p>
+            <span className="self-start px-3 py-1 bg-black text-white text-xs font-black uppercase">
+              localhost:7700 →
+            </span>
+          </a>
+
+        </div>
+      </section>
     </div>
   );
 }
