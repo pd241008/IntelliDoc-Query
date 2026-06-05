@@ -8,10 +8,28 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.api_router import main_api_router
 
-
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from prometheus_fastapi_instrumentator import Instrumentator
+
+# ─── DevTrace ────────────────────────────────────────────────────────────────
+# DevTrace is a Rust-based distributed API observability proxy.
+# It captures all request-response cycles and persists them in SQLite.
+# Toggle on/off with DEVTRACE_ENABLED=true in .env
+_devtrace_instance = None
+if os.getenv("DEVTRACE_ENABLED", "false").lower() == "true":
+    try:
+        from devtrace import DevTrace
+        _devtrace_instance = DevTrace(env={
+            "DEVTRACE_PORT": os.getenv("DEVTRACE_PORT", "7700"),
+            "DEVTRACE_TARGET": os.getenv("DEVTRACE_TARGET", "http://localhost:8000"),
+        })
+        _devtrace_instance.start()
+        print("✔ DevTrace observability proxy started on port", os.getenv("DEVTRACE_PORT", "7700"))
+    except Exception as e:
+        print(f"⚠ DevTrace failed to start (non-fatal): {e}")
+
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -27,6 +45,11 @@ app.add_middleware(
 )
 
 app.include_router(main_api_router)
+
+# ─── Prometheus Metrics ──────────────────────────────────────────────────────
+# Exposes /metrics endpoint for Prometheus to scrape.
+# Tracks: request counts, latencies, in-progress requests, errors by route.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.get("/")

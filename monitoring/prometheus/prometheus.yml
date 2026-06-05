@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s       # How often Prometheus scrapes targets
+  evaluation_interval: 15s   # How often rules are evaluated
+
+scrape_configs:
+  # ─── IntelliDoc FastAPI ─────────────────────────────────────────────────────
+  - job_name: "intellidoc-api"
+    static_configs:
+      - targets: ["api:8000"]   # Docker service name + port
+    metrics_path: "/metrics"
+
+  # ─── Prometheus self-monitoring ─────────────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
